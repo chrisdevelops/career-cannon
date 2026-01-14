@@ -30,3 +30,6 @@ npm-debug.log*
 
 # Package manager
 package-lock.json
+
+# Tanstack Query Cache
+*/**/.tanstack
