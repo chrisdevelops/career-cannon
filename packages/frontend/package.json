@@ -1,5 +1,5 @@
 {
-  "name": "career-cannon",
+  "name": "@career-cannon/frontend",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -10,10 +10,12 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@career-cannon/shared": "*",
     "@base-ui/react": "^1.0.0",
     "@fontsource-variable/figtree": "^5.2.10",
     "@tabler/icons-react": "^3.36.1",
     "@tailwindcss/vite": "^4.1.17",
+    "@tanstack/react-router": "^1.121.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "react": "^19.2.0",
@@ -21,9 +23,12 @@
     "shadcn": "^3.6.3",
     "tailwind-merge": "^3.4.0",
     "tailwindcss": "^4.1.17",
-    "tw-animate-css": "^1.4.0"
+    "tw-animate-css": "^1.4.0",
+    "zod": "^3.25.64",
+    "zustand": "^5.0.5"
   },
   "devDependencies": {
+    "@tanstack/router-plugin": "^1.121.2",
     "@eslint/js": "^9.39.1",
     "@types/node": "^24.10.1",
     "@types/react": "^19.2.5",

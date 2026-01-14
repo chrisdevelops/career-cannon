@@ -1,0 +1,24 @@
+{
+  "name": "career-cannon",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspaces --if-present",
+    "dev:frontend": "npm run dev -w @career-cannon/frontend",
+    "dev:backend": "npm run dev -w @career-cannon/backend",
+    "build": "npm run build --workspaces --if-present",
+    "build:frontend": "npm run build -w @career-cannon/frontend",
+    "build:backend": "npm run build -w @career-cannon/backend",
+    "lint": "npm run lint --workspaces --if-present",
+    "db:generate": "npm run db:generate -w @career-cannon/backend",
+    "db:push": "npm run db:push -w @career-cannon/backend",
+    "db:studio": "npm run db:studio -w @career-cannon/backend"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

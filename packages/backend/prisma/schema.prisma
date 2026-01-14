@@ -1,0 +1,150 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Profile - user's basic info
+model Profile {
+  id        String   @id @default(cuid())
+  name      String
+  email     String?
+  phone     String?
+  location  String?
+  linkedin  String?
+  github    String?
+  website   String?
+  summary   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Role - job positions held
+model Role {
+  id              String           @id @default(cuid())
+  company         String
+  title           String
+  startDate       DateTime
+  endDate         DateTime?
+  current         Boolean          @default(false)
+  description     String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  experienceItems ExperienceItem[]
+  achievements    Achievement[]
+}
+
+// ExperienceItem - responsibilities, initiatives linked to roles
+model ExperienceItem {
+  id        String   @id @default(cuid())
+  roleId    String
+  role      Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  content   String
+  type      String   @default("responsibility") // responsibility, initiative, contribution
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Achievement - problem → action → outcome format
+model Achievement {
+  id        String   @id @default(cuid())
+  roleId    String?
+  role      Role?    @relation(fields: [roleId], references: [id], onDelete: SetNull)
+  problem   String
+  action    String
+  outcome   String
+  metrics   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Skill - with proficiency and evidence
+model Skill {
+  id          String   @id @default(cuid())
+  name        String
+  category    String?  // technical, soft, tool, language
+  proficiency String?  // expert, advanced, intermediate, beginner
+  evidence    String?  // JSON array of evidence references
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// Project - standalone projects and learnings
+model Project {
+  id          String    @id @default(cuid())
+  name        String
+  description String?
+  url         String?
+  startDate   DateTime?
+  endDate     DateTime?
+  learnings   String?
+  technologies String?  // JSON array
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+// Education
+model Education {
+  id          String    @id @default(cuid())
+  institution String
+  degree      String
+  field       String?
+  startDate   DateTime?
+  endDate     DateTime?
+  gpa         String?
+  honors      String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+// VoiceBlueprint - user's writing style preferences
+model VoiceBlueprint {
+  id              String   @id @default(cuid())
+  tone            String?  // professional, casual, confident, humble
+  formality       String?  // formal, semi-formal, informal
+  vocabularyNotes String?
+  sentenceLength  String?  // short, medium, long, varied
+  avoid           String?  // things to avoid (JSON array)
+  samples         String?  // example writing samples (JSON array)
+  customPrompt    String?  // additional instructions
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// ChangeLog - tracks all KB mutations for undo/history
+model ChangeLog {
+  id             String   @id @default(cuid())
+  entityType     String   // profile, role, skill, etc.
+  entityId       String
+  action         String   // create, update, delete
+  beforeSnapshot String?  // JSON snapshot before change
+  afterSnapshot  String?  // JSON snapshot after change
+  timestamp      DateTime @default(now())
+}
+
+// Generation - groups resume/cover letter generations by job
+model Generation {
+  id          String              @id @default(cuid())
+  company     String
+  position    String
+  jobDescription String
+  temperature Float               @default(0.8)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  versions    GenerationVersion[]
+}
+
+// GenerationVersion - immutable versions of generated content
+model GenerationVersion {
+  id           String     @id @default(cuid())
+  generationId String
+  generation   Generation @relation(fields: [generationId], references: [id], onDelete: Cascade)
+  type         String     // resume, cover_letter
+  content      String
+  chatContext  String?    // JSON array of chat messages that led to this version
+  version      Int
+  createdAt    DateTime   @default(now())
+}
