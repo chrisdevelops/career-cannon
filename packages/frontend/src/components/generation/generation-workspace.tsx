@@ -5,7 +5,7 @@
  * Three-panel layout: Input | Preview | Chat/Versions
  */
 
-import { useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import { IconLoader2, IconSparkles, IconAlertCircle } from '@tabler/icons-react';
 import { useGenerationStore, type GenerationType } from '@/stores/generation-store';
 import { aiApi, generationsApi } from '@/lib/api';
@@ -33,10 +33,24 @@ export function GenerationWorkspace({ type }: GenerationWorkspaceProps) {
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<'chat' | 'versions'>('chat');
 
-  // Initialize session if needed
-  if (!session || session.type !== type) {
-    startNewSession(type);
-    return null;
+  const isSessionReady = !!session && session.type === type;
+
+  // Initialize session if needed (avoid setState during render)
+  useEffect(() => {
+    if (!isSessionReady) {
+      startNewSession(type);
+    }
+  }, [isSessionReady, startNewSession, type]);
+
+  if (!isSessionReady) {
+    return (
+      <div className="flex items-center justify-center h-[calc(100vh-140px)] border rounded-lg">
+        <div className="text-center text-muted-foreground">
+          <IconLoader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
+          <p className="text-sm">Preparing session…</p>
+        </div>
+      </div>
+    );
   }
 
   const { input, currentContent, status, error } = session;
@@ -114,7 +128,7 @@ export function GenerationWorkspace({ type }: GenerationWorkspaceProps) {
   };
 
   // Handle chat refinement
-  const handleSendMessage = useCallback(async (message: string) => {
+  const handleSendMessage = async (message: string) => {
     if (!session.id || !currentContent) return;
 
     addChatMessage({ role: 'user', content: message });
@@ -151,7 +165,7 @@ export function GenerationWorkspace({ type }: GenerationWorkspaceProps) {
     } catch (err) {
       setStatus('error', err instanceof Error ? err.message : 'Refinement failed');
     }
-  }, [session, currentContent, type]);
+  };
 
   return (
     <div className="grid grid-cols-12 gap-6 h-[calc(100vh-140px)]">

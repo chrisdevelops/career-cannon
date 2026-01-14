@@ -7,6 +7,8 @@ import {
   IconSchool,
   IconMicrophone,
   IconHome,
+  IconFileUpload,
+  IconHistory,
 } from '@tabler/icons-react';
 import { cn } from '@/lib/utils';
 
@@ -21,6 +23,8 @@ const navItems = [
   { to: '/kb/projects', icon: IconStar, label: 'Projects' },
   { to: '/kb/education', icon: IconSchool, label: 'Education' },
   { to: '/kb/voice', icon: IconMicrophone, label: 'Voice Blueprint' },
+  { to: '/import', icon: IconFileUpload, label: 'Import Resume' },
+  { to: '/history', icon: IconHistory, label: 'Change History' },
 ];
 
 function KBLayout() {

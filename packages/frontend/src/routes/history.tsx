@@ -2,16 +2,15 @@ import { createFileRoute } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 import {
   changeLogApi,
-  ChangeLogEntry,
-  EntityType,
+  type ChangeLogEntry,
+  type EntityType,
 } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import {
   Card,
   CardHeader,
-  CardTitle,
-  CardDescription,
   CardContent,
   CardFooter,
 } from '@/components/ui/card';
@@ -24,14 +23,15 @@ import {
 } from '@/components/ui/select';
 import { PageHeader } from '@/components/kb/page-header';
 import { 
-  IconHistory, 
-  IconRotateCcw, 
-  IconPlus, 
-  IconPencil, 
-  IconTrash, 
-  IconArrowRight 
+  IconHistory,
+  IconRefresh,
+  IconPlus,
+  IconPencil,
+  IconTrash,
+  IconArrowRight
 } from '@tabler/icons-react';
 import { cn } from '@/lib/utils';
+import { useDebouncedCallback } from '@/hooks/use-debounce';
 
 export const Route = createFileRoute('/history')({
   component: HistoryPage,
@@ -41,7 +41,7 @@ const ENTITY_TYPES: { value: EntityType | 'all'; label: string }[] = [
   { value: 'all', label: 'All Entities' },
   { value: 'profile', label: 'Profile' },
   { value: 'role', label: 'Role' },
-  { value: 'experienceItem', label: 'Experience' },
+  { value: 'experienceItem', label: 'Experience Item' },
   { value: 'achievement', label: 'Achievement' },
   { value: 'skill', label: 'Skill' },
   { value: 'project', label: 'Project' },
@@ -49,19 +49,38 @@ const ENTITY_TYPES: { value: EntityType | 'all'; label: string }[] = [
   { value: 'voiceBlueprint', label: 'Voice Blueprint' },
 ];
 
+function getEntityTypeName(type: EntityType): string {
+  const found = ENTITY_TYPES.find(t => t.value === type);
+  return found ? found.label : type;
+}
+
 function HistoryPage() {
   const [history, setHistory] = useState<ChangeLogEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterType, setFilterType] = useState<EntityType | 'all'>('all');
+  const [entityIdFilter, setEntityIdFilter] = useState('');
+  const [debouncedEntityId, setDebouncedEntityId] = useState('');
   const [undoingId, setUndoingId] = useState<string | null>(null);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+
+  const debouncedSetEntityId = useDebouncedCallback((value: string) => {
+    setDebouncedEntityId(value);
+  }, 500);
+
+  const handleEntityIdChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setEntityIdFilter(e.target.value);
+    debouncedSetEntityId(e.target.value);
+  };
 
   const fetchHistory = async () => {
     setLoading(true);
     try {
-      const params: { limit: number; entityType?: EntityType } = { limit: 50 };
+      const params: { limit: number; entityType?: EntityType; entityId?: string } = { limit: 50 };
       if (filterType !== 'all') {
         params.entityType = filterType;
+      }
+      if (debouncedEntityId.trim()) {
+        params.entityId = debouncedEntityId.trim();
       }
       const data = await changeLogApi.list(params);
       setHistory(data);
@@ -74,7 +93,7 @@ function HistoryPage() {
 
   useEffect(() => {
     fetchHistory();
-  }, [filterType]);
+  }, [filterType, debouncedEntityId]);
 
   const handleUndo = async (entry: ChangeLogEntry) => {
     if (!confirm('Are you sure you want to undo this change? This action might have side effects.')) {
@@ -129,12 +148,18 @@ function HistoryPage() {
         description="View and undo recent changes to your data."
         actions={
           <div className="flex items-center gap-2">
+            <Input
+              placeholder="Filter by Entity ID..."
+              value={entityIdFilter}
+              onChange={handleEntityIdChange}
+              className="w-[200px] h-9"
+            />
             <Select 
               value={filterType} 
               onValueChange={(val) => setFilterType(val as EntityType | 'all')}
             >
               <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Filter by type" />
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 {ENTITY_TYPES.map((type) => (
@@ -192,34 +217,79 @@ function HistoryPage() {
   );
 }
 
-function ChangeCard({ 
-  entry, 
-  onUndo, 
+function ChangeCard({
+  entry,
+  onUndo,
   isUndoing,
   getActionBadge,
-  formatDate
-}: { 
-  entry: ChangeLogEntry; 
+  formatDate,
+}: {
+  entry: ChangeLogEntry;
   onUndo: (entry: ChangeLogEntry) => void;
   isUndoing: boolean;
   getActionBadge: (action: string) => React.ReactNode;
   formatDate: (date: string) => string;
 }) {
   const isCreate = entry.action === 'create';
-  const isDelete = entry.action === 'delete';
-  
+
   // Helper to extract a display name or label from the snapshot
-  const getEntityLabel = (data: any): string => {
-    if (!data) return 'Unknown';
-    if (typeof data === 'object') {
-      return data.name || data.title || data.company || data.institution || data.tone || 'Item';
+  const getEntityLabel = (data: unknown, type: EntityType): string => {
+    if (data === null || data === undefined) return 'Unknown';
+    if (!isRecord(data)) return String(data);
+
+    // Specific formatting based on entity type
+    if (type === 'role') {
+      const title = typeof data.title === 'string' ? data.title : '';
+      const company = typeof data.company === 'string' ? data.company : '';
+      if (title && company) return `${title} @ ${company}`;
+      if (title) return title;
+      if (company) return company;
     }
-    return String(data);
+
+    if (type === 'education') {
+      const degree = typeof data.degree === 'string' ? data.degree : '';
+      const institution = typeof data.institution === 'string' ? data.institution : '';
+      if (degree && institution) return `${degree} @ ${institution}`;
+      if (degree) return degree;
+      if (institution) return institution;
+    }
+
+    if (type === 'project') {
+      if (typeof data.name === 'string' && data.name) return data.name;
+    }
+
+    if (type === 'skill') {
+      if (typeof data.name === 'string' && data.name) return data.name;
+    }
+    
+    if (type === 'achievement') {
+      if (typeof data.problem === 'string' && data.problem) {
+        return data.problem.length > 60 
+          ? data.problem.substring(0, 60) + '...' 
+          : data.problem;
+      }
+    }
+
+    // Fallback logic
+    const candidates: Array<keyof Record<string, unknown>> = [
+      'name',
+      'title',
+      'company',
+      'institution',
+      'tone',
+    ];
+
+    for (const key of candidates) {
+      const value = data[key];
+      if (typeof value === 'string' && value.trim().length > 0) return value;
+    }
+
+    return 'Item';
   };
 
   const name = isCreate 
-    ? getEntityLabel(entry.afterSnapshot) 
-    : getEntityLabel(entry.beforeSnapshot);
+    ? getEntityLabel(entry.afterSnapshot, entry.entityType) 
+    : getEntityLabel(entry.beforeSnapshot, entry.entityType);
 
   return (
     <Card className="overflow-hidden transition-all hover:shadow-md">
@@ -227,9 +297,14 @@ function ChangeCard({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             {getActionBadge(entry.action)}
-            <span className="font-semibold text-sm">{entry.entityType}</span>
+            <Badge variant="outline" className="font-normal text-muted-foreground">
+              {getEntityTypeName(entry.entityType)}
+            </Badge>
             <span className="text-muted-foreground text-sm">•</span>
             <span className="text-sm font-medium">{name}</span>
+            <span className="text-xs text-muted-foreground font-mono ml-2 opacity-50">
+               ID: {entry.entityId.substring(0, 8)}
+            </span>
           </div>
           <span className="text-xs text-muted-foreground font-mono">
             {formatDate(entry.timestamp)}
@@ -253,7 +328,7 @@ function ChangeCard({
             <>Undoing...</>
           ) : (
             <>
-              <IconRotateCcw className="size-3.5 mr-2" />
+               <IconRefresh className="size-3.5 mr-2" />
               Undo Change
             </>
           )}
@@ -263,13 +338,17 @@ function ChangeCard({
   );
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
 function ChangeSummary({ entry }: { entry: ChangeLogEntry }) {
   const { action, beforeSnapshot, afterSnapshot } = entry;
 
   if (action === 'create') {
     return (
       <div className="text-muted-foreground">
-        Created new {entry.entityType}.
+        Created new {getEntityTypeName(entry.entityType).toLowerCase()}.
         <div className="mt-2 text-xs bg-muted/30 p-2 rounded border font-mono overflow-x-auto">
           {JSON.stringify(afterSnapshot, null, 2)}
         </div>
@@ -280,7 +359,7 @@ function ChangeSummary({ entry }: { entry: ChangeLogEntry }) {
   if (action === 'delete') {
     return (
       <div className="text-muted-foreground">
-        Deleted {entry.entityType}.
+        Deleted {getEntityTypeName(entry.entityType).toLowerCase()}.
         <div className="mt-2 text-xs bg-red-50/50 dark:bg-red-900/10 p-2 rounded border border-red-100 dark:border-red-900 font-mono overflow-x-auto">
           {JSON.stringify(beforeSnapshot, null, 2)}
         </div>
@@ -289,14 +368,14 @@ function ChangeSummary({ entry }: { entry: ChangeLogEntry }) {
   }
 
   // Update
-  const before = beforeSnapshot as Record<string, any>;
-  const after = afterSnapshot as Record<string, any>;
-  
+  const before = isRecord(beforeSnapshot) ? beforeSnapshot : {};
+  const after = isRecord(afterSnapshot) ? afterSnapshot : {};
+
   // Simple diff
-  const changes = Object.keys(after || {}).filter(key => {
+  const changes = Object.keys(after).filter((key) => {
     // Ignore metadata fields
     if (['updatedAt', 'createdAt', 'id'].includes(key)) return false;
-    return JSON.stringify(before?.[key]) !== JSON.stringify(after?.[key]);
+    return JSON.stringify(before[key]) !== JSON.stringify(after[key]);
   });
 
   if (changes.length === 0) {
@@ -307,15 +386,15 @@ function ChangeSummary({ entry }: { entry: ChangeLogEntry }) {
     <div className="space-y-2">
       <p className="text-muted-foreground mb-2">Modified fields:</p>
       <div className="grid gap-2">
-        {changes.slice(0, 5).map(key => (
+        {changes.slice(0, 5).map((key) => (
           <div key={key} className="grid grid-cols-[1fr_auto_1fr] gap-2 items-center text-xs">
             <div className="bg-red-50/50 dark:bg-red-900/10 p-1.5 rounded border border-red-100 dark:border-red-900 font-mono truncate text-red-700 dark:text-red-400">
               <span className="font-bold text-muted-foreground mr-2 select-none">{key}:</span>
-              {JSON.stringify(before?.[key])}
+              {JSON.stringify(before[key])}
             </div>
             <IconArrowRight className="size-3 text-muted-foreground shrink-0" />
             <div className="bg-green-50/50 dark:bg-green-900/10 p-1.5 rounded border border-green-100 dark:border-green-900 font-mono truncate text-green-700 dark:text-green-400">
-              {JSON.stringify(after?.[key])}
+              {JSON.stringify(after[key])}
             </div>
           </div>
         ))}

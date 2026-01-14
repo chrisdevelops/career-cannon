@@ -389,7 +389,7 @@ function ExperienceItemsSection({ roleId, items, onRefresh }: ExperienceItemsSec
           </li>
         ))}
         {items.length === 0 && !showForm && (
-          <li className="text-sm text-muted-foreground">No items yet</li>
+          <li className="text-sm text-muted-foreground">No experience items yet</li>
         )}
       </ul>
     </div>
@@ -450,7 +450,7 @@ function AchievementsSection({ roleId, achievements, onRefresh }: AchievementsSe
           <Input
             value={form.outcome}
             onChange={(e) => setForm({ ...form, outcome: e.target.value })}
-            placeholder="Outcome: What was the result?"
+            placeholder="Results: What was the result?"
           />
           <Input
             value={form.metrics}

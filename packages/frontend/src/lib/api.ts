@@ -250,6 +250,135 @@ export interface SuggestionsResult {
   suggestions: string[];
 }
 
+// Change Log
+export type EntityType =
+  | 'profile'
+  | 'role'
+  | 'experienceItem'
+  | 'achievement'
+  | 'skill'
+  | 'project'
+  | 'education'
+  | 'voiceBlueprint';
+
+export type ActionType = 'create' | 'update' | 'delete';
+
+export interface ChangeLogEntry {
+  id: string;
+  entityType: EntityType;
+  entityId: string;
+  action: ActionType;
+  beforeSnapshot: unknown | null;
+  afterSnapshot: unknown | null;
+  timestamp: string;
+}
+
+export interface UndoChangeResult {
+  success: boolean;
+  message: string;
+  restoredData?: unknown;
+}
+
+// Resume Parsing
+export interface ParsedResumeRole {
+  company: string;
+  title: string;
+  startDate: string;
+  endDate?: string | null;
+  current: boolean;
+  description?: string | null;
+}
+
+export interface ParsedResumeExperienceItem {
+  roleIndex: number;
+  content: string;
+  type: 'responsibility' | 'initiative' | 'contribution';
+}
+
+export interface ParsedResumeAchievement {
+  roleIndex?: number | null;
+  problem: string;
+  action: string;
+  outcome: string;
+  metrics?: string | null;
+}
+
+export interface ParsedResumeSkill {
+  name: string;
+  category?: 'technical' | 'soft' | 'tool' | 'language' | null;
+  proficiency?: 'expert' | 'advanced' | 'intermediate' | 'beginner' | null;
+}
+
+export interface ParsedResumeEducation {
+  institution: string;
+  degree: string;
+  field?: string | null;
+  startDate?: string | null;
+  endDate?: string | null;
+  gpa?: string | null;
+  honors?: string | null;
+}
+
+export interface ParsedResumeProject {
+  name: string;
+  description?: string | null;
+  url?: string | null;
+  technologies?: string[];
+}
+
+export interface ParsedResume {
+  profile?: {
+    name?: string;
+    email?: string;
+    phone?: string;
+    location?: string;
+    linkedin?: string;
+    github?: string;
+    website?: string;
+    summary?: string;
+  };
+  roles: ParsedResumeRole[];
+  experienceItems: ParsedResumeExperienceItem[];
+  achievements: ParsedResumeAchievement[];
+  skills: ParsedResumeSkill[];
+  education: ParsedResumeEducation[];
+  projects: ParsedResumeProject[];
+}
+
+export interface DuplicateMatch {
+  existingId: string;
+  score: number;
+  matchType: 'exact' | 'similar' | 'partial';
+  matchDetails: string;
+}
+
+export interface DuplicateCheckResult<T> {
+  item: T;
+  duplicates: DuplicateMatch[];
+  isLikelyDuplicate: boolean;
+}
+
+export interface FullDuplicateCheckResult {
+  roles: DuplicateCheckResult<ParsedResumeRole>[];
+  skills: DuplicateCheckResult<ParsedResumeSkill>[];
+  education: DuplicateCheckResult<ParsedResumeEducation>[];
+  achievements: DuplicateCheckResult<ParsedResumeAchievement>[];
+  summary: {
+    totalItems: number;
+    likelyDuplicates: number;
+  };
+}
+
+export interface ParseResumeResult {
+  parsed: ParsedResume;
+  validation: {
+    valid: boolean;
+    errors: string[];
+  };
+  duplicates: FullDuplicateCheckResult;
+  rawExtraction: unknown;
+}
+
 // =============================================================================
 // API Methods
 // =============================================================================
@@ -330,9 +459,24 @@ export const voiceBlueprintApi = {
   delete: () => api.delete<{ deleted: boolean }>('/voice-blueprint'),
 };
 
+export const changeLogApi = {
+  list: (params?: { entityType?: EntityType; entityId?: string; limit?: number }) => {
+    const search = new URLSearchParams();
+    if (params?.entityType) search.set('entityType', params.entityType);
+    if (params?.entityId) search.set('entityId', params.entityId);
+    if (params?.limit) search.set('limit', String(params.limit));
+    const qs = search.toString();
+    return api.get<ChangeLogEntry[]>(`/change-log${qs ? `?${qs}` : ''}`);
+  },
+  undo: (changeLogId: string) => api.post<UndoChangeResult>('/change-log/undo', { changeLogId }),
+};
+
 export const aiApi = {
   status: () => api.get<AiStatus>('/ai/status'),
-  
+
+  parseResume: (data: { content: string; format?: 'text' | 'markdown' }) =>
+    api.post<ParseResumeResult>('/ai/parse-resume', data),
+
   generateResume: (data: {
     jobDescription: string;
     company: string;
