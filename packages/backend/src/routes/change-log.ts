@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { success, notFound, serverError } from '../lib/api-response.js';
 import { validate } from '../middleware/validate.js';
-import { getChangeHistory, undoChange } from '../lib/change-log.js';
+import { getChangeHistory, undoChange, redoChange } from '../lib/change-log.js';
 import { getParam } from '../lib/route-helpers.js';
 import type { EntityType } from '@career-cannon/shared';
 
@@ -11,13 +11,15 @@ const router = Router();
 // GET /api/change-log - Get change history
 router.get('/', async (req, res) => {
   try {
-    const entityType = getParam(req.query.entityType as string | string[] | undefined) as EntityType | undefined;
-    const entityId = getParam(req.query.entityId as string | string[] | undefined);
-    const limitStr = getParam(req.query.limit as string | string[] | undefined);
-    const limit = limitStr ? Math.min(parseInt(limitStr, 10) || 50, 100) : 50;
+  const entityType = getParam(req.query.entityType as string | string[] | undefined) as EntityType | undefined;
+  const entityId = getParam(req.query.entityId as string | string[] | undefined);
+  const limitStr = getParam(req.query.limit as string | string[] | undefined);
+  const undoneStr = getParam(req.query.undone as string | string[] | undefined);
+  const limit = limitStr ? Math.min(parseInt(limitStr, 10) || 50, 100) : 50;
+  const undone = undoneStr === undefined ? undefined : undoneStr === 'true';
 
-    const history = await getChangeHistory(entityType, entityId, limit);
-    success(res, history);
+  const history = await getChangeHistory(entityType, entityId, limit, undone);
+  success(res, history);
   } catch (err) {
     serverError(res, err);
   }
@@ -31,6 +33,20 @@ const undoSchema = z.object({
 router.post('/undo', validate(undoSchema), async (req, res) => {
   try {
     const result = await undoChange(req.body.changeLogId);
+    if (!result.success) {
+      notFound(res, result.message);
+      return;
+    }
+    success(res, result);
+  } catch (err) {
+    serverError(res, err);
+  }
+});
+
+// POST /api/change-log/redo - Redo a specific change
+router.post('/redo', validate(undoSchema), async (req, res) => {
+  try {
+    const result = await redoChange(req.body.changeLogId);
     if (!result.success) {
       notFound(res, result.message);
       return;

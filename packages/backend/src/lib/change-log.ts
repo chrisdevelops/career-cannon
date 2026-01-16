@@ -24,11 +24,13 @@ export async function logChange(params: LogChangeParams): Promise<void> {
 export async function getChangeHistory(
   entityType?: EntityType,
   entityId?: string,
-  limit = 50
+  limit = 50,
+  undone?: boolean
 ) {
-  const where: { entityType?: string; entityId?: string } = {};
+  const where: { entityType?: string; entityId?: string; undone?: boolean } = {};
   if (entityType) where.entityType = entityType;
   if (entityId) where.entityId = entityId;
+  if (undone !== undefined) where.undone = undone;
 
   const logs = await prisma.changeLog.findMany({
     where,
@@ -56,6 +58,10 @@ export async function undoChange(changeLogId: string): Promise<{
     return { success: false, message: 'Change log entry not found' };
   }
 
+  if (changeLog.undone) {
+    return { success: false, message: 'Change has already been undone' };
+  }
+
   const { entityType, entityId, action, beforeSnapshot } = changeLog;
   const parsedBefore = beforeSnapshot ? JSON.parse(beforeSnapshot) : null;
 
@@ -64,30 +70,93 @@ export async function undoChange(changeLogId: string): Promise<{
       case 'create': {
         // Undo create = delete the entity
         await deleteEntity(entityType, entityId);
-        return { success: true, message: `Deleted ${entityType} ${entityId}` };
+        break;
       }
       case 'update': {
         // Undo update = restore previous state
         if (!parsedBefore) {
           return { success: false, message: 'No previous state to restore' };
         }
-        const restored = await updateEntity(entityType, entityId, parsedBefore);
-        return { success: true, message: `Restored ${entityType} ${entityId}`, restoredData: restored };
+        await updateEntity(entityType, entityId, parsedBefore);
+        break;
       }
       case 'delete': {
         // Undo delete = recreate with previous data
         if (!parsedBefore) {
           return { success: false, message: 'No previous state to restore' };
         }
-        const recreated = await createEntity(entityType, parsedBefore);
-        return { success: true, message: `Recreated ${entityType}`, restoredData: recreated };
+        await createEntity(entityType, parsedBefore);
+        break;
       }
       default:
         return { success: false, message: `Unknown action: ${action}` };
     }
+
+    await prisma.changeLog.update({
+      where: { id: changeLogId },
+      data: { undone: true, undoneAt: new Date() },
+    });
+
+    return { success: true, message: `Undid ${entityType} ${entityId}` };
   } catch (err) {
     console.error('Undo failed:', err);
     return { success: false, message: `Undo failed: ${String(err)}` };
+  }
+}
+
+export async function redoChange(changeLogId: string): Promise<{
+  success: boolean;
+  message: string;
+  restoredData?: unknown;
+}> {
+  const changeLog = await prisma.changeLog.findUnique({
+    where: { id: changeLogId },
+  });
+
+  if (!changeLog) {
+    return { success: false, message: 'Change log entry not found' };
+  }
+
+  if (!changeLog.undone) {
+    return { success: false, message: 'Change has not been undone' };
+  }
+
+  const { entityType, entityId, action, afterSnapshot } = changeLog;
+  const parsedAfter = afterSnapshot ? JSON.parse(afterSnapshot) : null;
+
+  try {
+    switch (action) {
+      case 'create': {
+        if (!parsedAfter) {
+          return { success: false, message: 'No data to recreate' };
+        }
+        await createEntity(entityType, parsedAfter);
+        break;
+      }
+      case 'update': {
+        if (!parsedAfter) {
+          return { success: false, message: 'No updated state to restore' };
+        }
+        await updateEntity(entityType, entityId, parsedAfter);
+        break;
+      }
+      case 'delete': {
+        await deleteEntity(entityType, entityId);
+        break;
+      }
+      default:
+        return { success: false, message: `Unknown action: ${action}` };
+    }
+
+    await prisma.changeLog.update({
+      where: { id: changeLogId },
+      data: { undone: false, undoneAt: null },
+    });
+
+    return { success: true, message: `Redid ${entityType} ${entityId}` };
+  } catch (err) {
+    console.error('Redo failed:', err);
+    return { success: false, message: `Redo failed: ${String(err)}` };
   }
 }
 

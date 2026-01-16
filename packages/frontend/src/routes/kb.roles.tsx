@@ -9,7 +9,8 @@ import {
   IconPencil,
 } from '@tabler/icons-react';
 import { rolesApi, experienceItemsApi, achievementsApi, type Role, type ExperienceItem, type Achievement } from '@/lib/api';
-import { PageHeader } from '@/components/kb/page-header';
+import { PageContent, PageHeaderBar } from '@/components/layout/page-shell';
+import { PageTitleBar } from '@/components/layout/page-title-bar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -74,49 +75,53 @@ function RolesPage() {
   }
 
   return (
-    <div className="p-8">
-      <PageHeader
-        title="Roles & Experience"
-        description="Your work history with responsibilities and achievements"
-        actions={
-          <Button onClick={() => setShowNewRoleForm(true)} className="gap-2">
-            <IconPlus className="w-4 h-4" />
-            Add Role
-          </Button>
-        }
-      />
-
-      {showNewRoleForm && (
-        <RoleForm
-          onSave={handleAddRole}
-          onCancel={() => setShowNewRoleForm(false)}
+    <>
+      <PageHeaderBar>
+        <PageTitleBar
+          title="Roles & Experience"
+          subtitle="Your work history with responsibilities and achievements"
+          actions={
+            <Button onClick={() => setShowNewRoleForm(true)} className="gap-2">
+              <IconPlus className="w-4 h-4" />
+              Add Role
+            </Button>
+          }
         />
-      )}
+      </PageHeaderBar>
 
-      <div className="space-y-4">
-        {roles.length === 0 && !showNewRoleForm && (
-          <div className="text-center py-12 text-muted-foreground">
-            <p>No roles added yet.</p>
-            <p className="text-sm mt-1">Add your work experience to get started.</p>
-          </div>
+      <PageContent>
+        {showNewRoleForm && (
+          <RoleForm
+            onSave={handleAddRole}
+            onCancel={() => setShowNewRoleForm(false)}
+          />
         )}
 
-        {roles.map((role) => (
-          <RoleCard
-            key={role.id}
-            role={role}
-            isExpanded={expandedRole === role.id}
-            isEditing={editingRole === role.id}
-            onToggle={() => setExpandedRole(expandedRole === role.id ? null : role.id)}
-            onEdit={() => setEditingRole(role.id)}
-            onCancelEdit={() => setEditingRole(null)}
-            onSave={(data) => handleUpdateRole(role.id, data)}
-            onDelete={() => handleDeleteRole(role.id)}
-            onRefresh={loadRoles}
-          />
-        ))}
-      </div>
-    </div>
+        <div className="space-y-4">
+          {roles.length === 0 && !showNewRoleForm && (
+            <div className="text-center py-12 text-muted-foreground">
+              <p>No roles added yet.</p>
+              <p className="text-sm mt-1">Add your work experience to get started.</p>
+            </div>
+          )}
+
+          {roles.map((role) => (
+            <RoleCard
+              key={role.id}
+              role={role}
+              isExpanded={expandedRole === role.id}
+              isEditing={editingRole === role.id}
+              onToggle={() => setExpandedRole(expandedRole === role.id ? null : role.id)}
+              onEdit={() => setEditingRole(role.id)}
+              onCancelEdit={() => setEditingRole(null)}
+              onSave={(data) => handleUpdateRole(role.id, data)}
+              onDelete={() => handleDeleteRole(role.id)}
+              onRefresh={loadRoles}
+            />
+          ))}
+        </div>
+      </PageContent>
+    </>
   );
 }
 

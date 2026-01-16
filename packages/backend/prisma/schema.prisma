@@ -102,16 +102,29 @@ model Education {
 
 // VoiceBlueprint - user's writing style preferences
 model VoiceBlueprint {
-  id              String   @id @default(cuid())
-  tone            String?  // professional, casual, confident, humble
-  formality       String?  // formal, semi-formal, informal
-  vocabularyNotes String?
-  sentenceLength  String?  // short, medium, long, varied
-  avoid           String?  // things to avoid (JSON array)
-  samples         String?  // example writing samples (JSON array)
-  customPrompt    String?  // additional instructions
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id                 String   @id @default(cuid())
+  tone               String?  // professional, casual, confident, humble
+  formality          String?  // formal, semi-formal, informal
+  sentenceLength     String?  // short, medium, long, varied
+  audience           String?  // target audience (recruiter, hiring manager)
+  pointOfView        String?  // first person, third person, mixed
+  energy             String?  // low, medium, high
+  confidence         String?  // humble, balanced, assertive
+  pacing             String?  // concise, balanced, detailed
+  structureStyle     String?  // bullet-focused, narrative, mixed
+  emphasis           String?  // metrics, impact, technical depth
+  vocabularyNotes    String?
+  grammarNotes       String?
+  punctuationStyle   String?
+  preferredVerbs     String?  // JSON array
+  preferredPhrases   String?  // JSON array
+  bannedPhrases      String?  // JSON array
+  avoid              String?  // things to avoid (JSON array)
+  samples            String?  // example writing samples (JSON array)
+  samplePairs        String?  // JSON array of { prompt, response }
+  customPrompt       String?  // additional instructions
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 }
 
 // ChangeLog - tracks all KB mutations for undo/history
@@ -123,6 +136,8 @@ model ChangeLog {
   beforeSnapshot String?  // JSON snapshot before change
   afterSnapshot  String?  // JSON snapshot after change
   timestamp      DateTime @default(now())
+  undone         Boolean  @default(false)
+  undoneAt       DateTime?
 }
 
 // Generation - groups resume/cover letter generations by job
@@ -135,6 +150,7 @@ model Generation {
   createdAt   DateTime            @default(now())
   updatedAt   DateTime            @updatedAt
   versions    GenerationVersion[]
+  drafts      GenerationDraft[]
 }
 
 // GenerationVersion - immutable versions of generated content
@@ -146,5 +162,40 @@ model GenerationVersion {
   content      String
   chatContext  String?    // JSON array of chat messages that led to this version
   version      Int
+  name         String?
+  favorite     Boolean    @default(false)
   createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @default(now()) @updatedAt
+  drafts       GenerationDraft[]
+}
+
+model GenerationDraft {
+  id            String            @id @default(cuid())
+  generationId  String
+  generation    Generation        @relation(fields: [generationId], references: [id], onDelete: Cascade)
+  baseVersionId String
+  baseVersion   GenerationVersion @relation(fields: [baseVersionId], references: [id], onDelete: Cascade)
+  type          String            // resume, cover_letter
+  content       String
+  chatContext   String?           // JSON array of chat messages
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  @@unique([baseVersionId])
+}
+
+model PromptOverride {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ApiKey {
+  id        String   @id @default(cuid())
+  provider  String   @unique
+  value     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

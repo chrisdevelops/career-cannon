@@ -1,4 +1,5 @@
 import OpenAI from 'openai';
+import { getEffectiveApiKey } from '../settings/api-keys.js';
 import type {
   AIProvider,
   ChatMessage,
@@ -11,27 +12,42 @@ export class OpenAIProvider implements AIProvider {
   readonly name = 'openai';
   private client: OpenAI | null = null;
   private model: string;
+  private currentKey: string | null = null;
 
   constructor(model = 'gpt-4o') {
     this.model = model;
-    if (this.isConfigured()) {
-      this.client = new OpenAI({
-        apiKey: process.env.OPENAI_API_KEY,
-      });
-    }
   }
 
   isConfigured(): boolean {
-    return !!process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY !== 'your-api-key-here';
+    return !!this.currentKey || (!!process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY !== 'your-api-key-here');
+  }
+
+  async isConfiguredAsync(): Promise<boolean> {
+    const key = await getEffectiveApiKey('openai');
+    return !!key;
+  }
+
+  private async ensureClient(): Promise<OpenAI> {
+    const key = await getEffectiveApiKey('openai');
+    if (!key) {
+      this.client = null;
+      this.currentKey = null;
+      throw new Error('OpenAI is not configured. Set an API key in Settings or OPENAI_API_KEY.');
+    }
+
+    if (!this.client || this.currentKey !== key) {
+      this.client = new OpenAI({ apiKey: key });
+      this.currentKey = key;
+    }
+
+    return this.client;
   }
 
   async complete(
     messages: ChatMessage[],
     options: CompletionOptions = {}
   ): Promise<CompletionResult> {
-    if (!this.client) {
-      throw new Error('OpenAI is not configured. Set OPENAI_API_KEY environment variable.');
-    }
+    const client = await this.ensureClient();
 
     const { temperature = 0.7, maxTokens = 4096, responseSchema } = options;
 
@@ -59,7 +75,7 @@ export class OpenAIProvider implements AIProvider {
       };
     }
 
-    const response = await this.client.chat.completions.create(params);
+    const response = await client.chat.completions.create(params);
 
     const content = response.choices[0]?.message?.content ?? '';
     let parsed: unknown;
@@ -95,7 +111,9 @@ export class OpenAIProvider implements AIProvider {
 
     const { temperature = 0.7, maxTokens = 4096, onChunk } = options;
 
-    const stream = await this.client.chat.completions.create({
+    const client = await this.ensureClient();
+
+    const stream = await client.chat.completions.create({
       model: this.model,
       messages: messages.map((m) => ({
         role: m.role,

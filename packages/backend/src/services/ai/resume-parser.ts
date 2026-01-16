@@ -1,4 +1,5 @@
 import { getOpenAIProvider } from './openai-provider.js';
+import { getPromptText } from './prompts.js';
 import type { ParsedResume, ChatMessage } from './types.js';
 
 /**
@@ -12,16 +13,17 @@ const PARSED_RESUME_SCHEMA = {
     profile: {
       type: 'object',
       properties: {
-        name: { type: 'string' },
-        email: { type: 'string' },
-        phone: { type: 'string' },
-        location: { type: 'string' },
-        linkedin: { type: 'string' },
-        github: { type: 'string' },
-        website: { type: 'string' },
-        summary: { type: 'string' },
+        name: { type: ['string', 'null'] },
+        email: { type: ['string', 'null'] },
+        phone: { type: ['string', 'null'] },
+        location: { type: ['string', 'null'] },
+        linkedin: { type: ['string', 'null'] },
+        github: { type: ['string', 'null'] },
+        website: { type: ['string', 'null'] },
+        summary: { type: ['string', 'null'] },
       },
-      required: [],
+      // OpenAI strict json_schema requires `required` to include every key in `properties`.
+      required: ['name', 'email', 'phone', 'location', 'linkedin', 'github', 'website', 'summary'],
       additionalProperties: false,
     },
     roles: {
@@ -36,10 +38,12 @@ const PARSED_RESUME_SCHEMA = {
           current: { type: 'boolean' },
           description: { type: ['string', 'null'] },
         },
-        required: ['company', 'title', 'startDate', 'current'],
+        // OpenAI strict json_schema requires `required` to include every key in `properties`.
+        required: ['company', 'title', 'startDate', 'endDate', 'current', 'description'],
         additionalProperties: false,
       },
     },
+
     experienceItems: {
       type: 'array',
       items: {
@@ -64,29 +68,32 @@ const PARSED_RESUME_SCHEMA = {
           outcome: { type: 'string' },
           metrics: { type: ['string', 'null'] },
         },
-        required: ['problem', 'action', 'outcome'],
+        // OpenAI strict json_schema requires `required` to include every key in `properties`.
+        required: ['roleIndex', 'problem', 'action', 'outcome', 'metrics'],
         additionalProperties: false,
       },
     },
+
     skills: {
-      type: 'array',
-      items: {
-        type: 'object',
-        properties: {
-          name: { type: 'string' },
-          category: {
-            type: ['string', 'null'],
-            enum: ['technical', 'soft', 'tool', 'language', null],
-          },
-          proficiency: {
-            type: ['string', 'null'],
-            enum: ['expert', 'advanced', 'intermediate', 'beginner', null],
-          },
-        },
-        required: ['name'],
-        additionalProperties: false,
-      },
-    },
+       type: 'array',
+       items: {
+         type: 'object',
+         properties: {
+           name: { type: 'string' },
+           category: {
+             type: ['string', 'null'],
+             enum: ['technical', 'soft', 'tool', 'language', null],
+           },
+           proficiency: {
+             type: ['string', 'null'],
+             enum: ['expert', 'advanced', 'intermediate', 'beginner', null],
+           },
+         },
+         // OpenAI strict json_schema requires `required` to include every key in `properties`.
+         required: ['name', 'category', 'proficiency'],
+         additionalProperties: false,
+       },
+     },
     education: {
       type: 'array',
       items: {
@@ -100,7 +107,8 @@ const PARSED_RESUME_SCHEMA = {
           gpa: { type: ['string', 'null'] },
           honors: { type: ['string', 'null'] },
         },
-        required: ['institution', 'degree'],
+        // OpenAI strict json_schema requires `required` to include every key in `properties`.
+        required: ['institution', 'degree', 'field', 'startDate', 'endDate', 'gpa', 'honors'],
         additionalProperties: false,
       },
     },
@@ -113,16 +121,18 @@ const PARSED_RESUME_SCHEMA = {
           description: { type: ['string', 'null'] },
           url: { type: ['string', 'null'] },
           technologies: {
-            type: 'array',
+            type: ['array', 'null'],
             items: { type: 'string' },
           },
         },
-        required: ['name'],
+        // OpenAI strict json_schema requires `required` to include every key in `properties`.
+        required: ['name', 'description', 'url', 'technologies'],
         additionalProperties: false,
       },
     },
   },
-  required: ['roles', 'experienceItems', 'achievements', 'skills', 'education', 'projects'],
+  // OpenAI strict json_schema requires `required` to include every key in `properties`.
+  required: ['profile', 'roles', 'experienceItems', 'achievements', 'skills', 'education', 'projects'],
   additionalProperties: false,
 };
 
@@ -166,6 +176,7 @@ EXTRACTION RULES:
 
 IMPORTANT:
 - Be thorough - extract everything, even if uncertain
+- Always return a profile object; use nulls for unknown fields
 - Use null for missing optional fields, never empty strings
 - Dates should be YYYY-MM-DD format
 - roleIndex values must be valid indices into the roles array
@@ -183,12 +194,14 @@ export interface ParseResumeResult {
 export async function parseResume(resumeText: string): Promise<ParseResumeResult> {
   const provider = getOpenAIProvider();
 
-  if (!provider.isConfigured()) {
+  if (!(await provider.isConfiguredAsync())) {
     throw new Error('AI provider is not configured');
   }
 
+  const systemPrompt = await getPromptText('resume-parser');
+
   const messages: ChatMessage[] = [
-    { role: 'system', content: SYSTEM_PROMPT },
+    { role: 'system', content: systemPrompt },
     {
       role: 'user',
       content: `Parse the following resume text and extract all structured information:\n\n---\n${resumeText}\n---`,

@@ -6,5 +6,12 @@ export const Route = createFileRoute('/generate/resume')({
 });
 
 function ResumeGeneratorPage() {
-  return <GenerationWorkspace type="resume" />;
+  const search = Route.useSearch() as { generationId?: string; versionId?: string };
+  return (
+    <GenerationWorkspace
+      type="resume"
+      generationId={search.generationId}
+      versionId={search.versionId}
+    />
+  );
 }

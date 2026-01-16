@@ -128,10 +128,23 @@ export interface KBContext {
   voiceBlueprint: {
     tone?: string | null;
     formality?: string | null;
-    vocabularyNotes?: string | null;
     sentenceLength?: string | null;
+    audience?: string | null;
+    pointOfView?: string | null;
+    energy?: string | null;
+    confidence?: string | null;
+    pacing?: string | null;
+    structureStyle?: string | null;
+    emphasis?: string | null;
+    vocabularyNotes?: string | null;
+    grammarNotes?: string | null;
+    punctuationStyle?: string | null;
+    preferredVerbs?: string[];
+    preferredPhrases?: string[];
+    bannedPhrases?: string[];
     avoid?: string[];
     samples?: string[];
+    samplePairs?: Array<{ prompt: string; response: string }>;
     customPrompt?: string | null;
   } | null;
 }

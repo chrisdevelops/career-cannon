@@ -13,6 +13,7 @@
  */
 
 import { getOpenAIProvider } from './openai-provider.js';
+import { getPromptText } from './prompts.js';
 import type { KBContext, GenerationRequest, GeneratedCoverLetter, ChatMessage } from './types.js';
 
 /**
@@ -29,11 +30,47 @@ function buildVoiceInstructions(voice: KBContext['voiceBlueprint']): string {
   if (voice.formality) {
     parts.push(`Maintain ${voice.formality} formality`);
   }
+  if (voice.audience) {
+    parts.push(`Audience: ${voice.audience}`);
+  }
+  if (voice.pointOfView) {
+    parts.push(`Point of view: ${voice.pointOfView}`);
+  }
+  if (voice.energy) {
+    parts.push(`Energy level: ${voice.energy}`);
+  }
+  if (voice.confidence) {
+    parts.push(`Confidence level: ${voice.confidence}`);
+  }
+  if (voice.pacing) {
+    parts.push(`Pacing: ${voice.pacing}`);
+  }
+  if (voice.structureStyle) {
+    parts.push(`Structure style: ${voice.structureStyle}`);
+  }
+  if (voice.emphasis) {
+    parts.push(`Emphasis: ${voice.emphasis}`);
+  }
   if (voice.sentenceLength) {
     parts.push(`Use ${voice.sentenceLength} sentences`);
   }
   if (voice.vocabularyNotes) {
     parts.push(`Vocabulary guidance: ${voice.vocabularyNotes}`);
+  }
+  if (voice.grammarNotes) {
+    parts.push(`Grammar notes: ${voice.grammarNotes}`);
+  }
+  if (voice.punctuationStyle) {
+    parts.push(`Punctuation style: ${voice.punctuationStyle}`);
+  }
+  if (voice.preferredVerbs && voice.preferredVerbs.length > 0) {
+    parts.push(`Preferred verbs: ${voice.preferredVerbs.join(', ')}`);
+  }
+  if (voice.preferredPhrases && voice.preferredPhrases.length > 0) {
+    parts.push(`Preferred phrases: ${voice.preferredPhrases.join(', ')}`);
+  }
+  if (voice.bannedPhrases && voice.bannedPhrases.length > 0) {
+    parts.push(`Banned phrases: ${voice.bannedPhrases.join(', ')}`);
   }
   if (voice.avoid && voice.avoid.length > 0) {
     parts.push(`Avoid these words/phrases: ${voice.avoid.join(', ')}`);
@@ -43,6 +80,9 @@ function buildVoiceInstructions(voice: KBContext['voiceBlueprint']): string {
   }
   if (voice.samples && voice.samples.length > 0) {
     parts.push(`Match the style of these writing samples:\n${voice.samples.map((s, i) => `Sample ${i + 1}: "${s}"`).join('\n')}`);
+  }
+  if (voice.samplePairs && voice.samplePairs.length > 0) {
+    parts.push(`Prompted samples:\n${voice.samplePairs.map((p) => `Prompt: "${p.prompt}"\nResponse: "${p.response}"`).join('\n')}`);
   }
 
   if (parts.length === 0) return '';
@@ -116,7 +156,7 @@ ${kb.profile.summary ? `Background: ${kb.profile.summary}` : ''}`);
 /**
  * Build the system prompt for cover letter generation.
  */
-function buildSystemPrompt(voiceInstructions: string): string {
+function buildSystemPromptTemplate(): string {
   return `You are an expert cover letter writer. Your task is to create a compelling, personalized cover letter.
 
 COVER LETTER REQUIREMENTS:
@@ -141,7 +181,12 @@ WHAT TO AVOID:
 OUTPUT FORMAT:
 Return ONLY the cover letter content in Markdown format. Do not include meta-commentary.
 The letter should be ready to send (no placeholders like [DATE] or [HIRING MANAGER]).
-${voiceInstructions}`;
+
+[Voice Instructions Injected Here]`;
+}
+
+function applyCoverLetterTemplate(template: string, voiceInstructions: string): string {
+  return template.replace('[Voice Instructions Injected Here]', voiceInstructions || '');
 }
 
 /**
@@ -150,12 +195,17 @@ ${voiceInstructions}`;
 export async function generateCoverLetter(request: GenerationRequest): Promise<GeneratedCoverLetter> {
   const provider = getOpenAIProvider();
 
-  if (!provider.isConfigured()) {
+  if (!(await provider.isConfiguredAsync())) {
     throw new Error('AI provider is not configured');
   }
 
   const voiceInstructions = buildVoiceInstructions(request.kbContext.voiceBlueprint);
-  const systemPrompt = buildSystemPrompt(voiceInstructions);
+  const defaultTemplate = buildSystemPromptTemplate();
+  const overrideTemplate = await getPromptText('cover-letter-generator');
+  const systemPrompt = applyCoverLetterTemplate(
+    overrideTemplate || defaultTemplate,
+    voiceInstructions
+  );
   const kbContext = formatKBForCoverLetter(request.kbContext);
 
   // User prompt gets priority in cover letters
@@ -199,7 +249,7 @@ export async function generateCoverLetterStream(
 ): Promise<GeneratedCoverLetter> {
   const provider = getOpenAIProvider();
 
-  if (!provider.isConfigured()) {
+  if (!(await provider.isConfiguredAsync())) {
     throw new Error('AI provider is not configured');
   }
 
@@ -208,7 +258,12 @@ export async function generateCoverLetterStream(
   }
 
   const voiceInstructions = buildVoiceInstructions(request.kbContext.voiceBlueprint);
-  const systemPrompt = buildSystemPrompt(voiceInstructions);
+  const defaultTemplate = buildSystemPromptTemplate();
+  const overrideTemplate = await getPromptText('cover-letter-generator');
+  const systemPrompt = applyCoverLetterTemplate(
+    overrideTemplate || defaultTemplate,
+    voiceInstructions
+  );
   const kbContext = formatKBForCoverLetter(request.kbContext);
 
   const userGuidance = request.userPrompt

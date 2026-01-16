@@ -5,7 +5,8 @@
  * Three-panel layout: Input | Preview | Chat/Versions
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useNavigate } from '@tanstack/react-router';
 import { IconLoader2, IconSparkles, IconAlertCircle } from '@tabler/icons-react';
 import { useGenerationStore, type GenerationType } from '@/stores/generation-store';
 import { aiApi, generationsApi } from '@/lib/api';
@@ -19,30 +20,101 @@ import { cn } from '@/lib/utils';
 
 interface GenerationWorkspaceProps {
   type: GenerationType;
+  generationId?: string;
+  versionId?: string;
 }
 
-export function GenerationWorkspace({ type }: GenerationWorkspaceProps) {
+export function GenerationWorkspace({ type, generationId, versionId }: GenerationWorkspaceProps) {
+  const navigate = useNavigate();
   const session = useGenerationStore((s) => s.session);
   const startNewSession = useGenerationStore((s) => s.startNewSession);
+  const loadSession = useGenerationStore((s) => s.loadSession);
   const setContent = useGenerationStore((s) => s.setContent);
   const addVersion = useGenerationStore((s) => s.addVersion);
   const addChatMessage = useGenerationStore((s) => s.addChatMessage);
   const setStatus = useGenerationStore((s) => s.setStatus);
   const setSessionId = useGenerationStore((s) => s.setSessionId);
+  const selectVersion = useGenerationStore((s) => s.selectVersion);
+  const upsertDraft = useGenerationStore((s) => s.upsertDraft);
+  const replaceDraftWithVersion = useGenerationStore((s) => s.replaceDraftWithVersion);
+  const removeDraft = useGenerationStore((s) => s.removeDraft);
+  const updateVersionMeta = useGenerationStore((s) => s.updateVersionMeta);
 
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<'chat' | 'versions'>('chat');
+  const [isHydrating, setIsHydrating] = useState(false);
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
+  const [isDiscardingDraft, setIsDiscardingDraft] = useState(false);
+  const hasAppliedVersionRef = useRef(false);
 
   const isSessionReady = !!session && session.type === type;
 
-  // Initialize session if needed (avoid setState during render)
   useEffect(() => {
-    if (!isSessionReady) {
-      startNewSession(type);
+    if (!generationId) {
+      if (!isSessionReady) {
+        startNewSession(type);
+      }
+      return;
     }
-  }, [isSessionReady, startNewSession, type]);
 
-  if (!isSessionReady) {
+    const shouldLoad = !session || session.id !== generationId || session.type !== type;
+    if (!shouldLoad) return;
+
+    hasAppliedVersionRef.current = false;
+
+    const hydrate = async () => {
+      setIsHydrating(true);
+      try {
+        const [generation, allVersions] = await Promise.all([
+          generationsApi.get(generationId),
+          generationsApi.getVersions(generationId),
+        ]);
+
+        const versionsForType = allVersions.filter((v) => v.type === type);
+        const selectedIndex = versionId
+          ? versionsForType.findIndex((v) => v.id === versionId)
+          : versionsForType.length - 1;
+        const safeIndex = selectedIndex >= 0 ? selectedIndex : versionsForType.length - 1;
+        const selectedVersion = versionsForType[safeIndex];
+
+        loadSession({
+          id: generation.id,
+          type,
+          input: {
+            company: generation.company,
+            position: generation.position,
+            jobDescription: generation.jobDescription,
+            temperature: generation.temperature,
+            userPrompt: '',
+          },
+          versions: versionsForType,
+          currentVersionIndex: safeIndex,
+          currentContent: selectedVersion?.content || '',
+          chatHistory: selectedVersion?.chatContext || [],
+        });
+      } catch (err) {
+        startNewSession(type);
+        setStatus('error', err instanceof Error ? err.message : 'Failed to load generation');
+      } finally {
+        setIsHydrating(false);
+      }
+    };
+
+    hydrate();
+  }, [generationId, versionId, isSessionReady, loadSession, session, startNewSession, type, setStatus]);
+
+  useEffect(() => {
+    if (!generationId || !versionId || !session) return;
+    if (session.id !== generationId || session.type !== type) return;
+    if (hasAppliedVersionRef.current) return;
+    const index = session.versions.findIndex((v) => v.id === versionId);
+    if (index >= 0 && session.currentVersionIndex !== index) {
+      selectVersion(index);
+    }
+    hasAppliedVersionRef.current = true;
+  }, [generationId, versionId, session, selectVersion, type]);
+
+  if (isHydrating || !isSessionReady) {
     return (
       <div className="flex items-center justify-center h-[calc(100vh-140px)] border rounded-lg">
         <div className="text-center text-muted-foreground">
@@ -128,8 +200,24 @@ export function GenerationWorkspace({ type }: GenerationWorkspaceProps) {
   };
 
   // Handle chat refinement
+  const updateUrlForVersion = (nextVersionId: string) => {
+    if (!session?.id) return;
+    const destination = type === 'resume' ? '/generate/resume' : '/generate/cover-letter';
+    navigate({
+      to: destination,
+      replace: true,
+      search: {
+        generationId: session.id,
+        versionId: nextVersionId,
+      },
+    });
+  };
+
   const handleSendMessage = async (message: string) => {
     if (!session.id || !currentContent) return;
+
+    const baseEntry = session.versions[session.currentVersionIndex];
+    if (!baseEntry) return;
 
     addChatMessage({ role: 'user', content: message });
     setStatus('refining');
@@ -142,28 +230,103 @@ export function GenerationWorkspace({ type }: GenerationWorkspaceProps) {
         type,
       });
 
+      const assistantMessage = result.explanation || 'Updated the content.';
+
       // Add assistant response
       addChatMessage({
         role: 'assistant',
-        content: result.explanation || 'Updated the content.',
+        content: assistantMessage,
       });
+
+      const updatedChat = [
+        ...session.chatHistory,
+        { role: 'user' as const, content: message },
+        { role: 'assistant' as const, content: assistantMessage },
+      ];
 
       setContent(result.content);
 
-      // Save new version
-      const version = await generationsApi.addVersion(session.id, {
-        type,
+      const baseVersionId = baseEntry.isDraft ? baseEntry.baseVersionId : baseEntry.id;
+      if (!baseVersionId) {
+        throw new Error('Missing base version for draft');
+      }
+
+      const draft = await generationsApi.saveDraft(session.id, {
+        baseVersionId,
         content: result.content,
-        chatContext: [...session.chatHistory, { role: 'user', content: message }],
+        chatContext: updatedChat,
       });
 
-      addVersion(version);
+      upsertDraft(draft);
+      updateUrlForVersion(draft.id);
       setStatus('idle');
 
       // Refresh suggestions
       loadSuggestions(result.content);
     } catch (err) {
       setStatus('error', err instanceof Error ? err.message : 'Refinement failed');
+    }
+  };
+
+  const handleSaveDraft = async () => {
+    if (!session?.id) return;
+    const entry = session.versions[session.currentVersionIndex];
+    if (!entry || !entry.isDraft) return;
+
+    setIsSavingDraft(true);
+    setStatus('refining');
+    try {
+      const version = await generationsApi.commitDraft(session.id, entry.id);
+      replaceDraftWithVersion(entry.id, version);
+      updateUrlForVersion(version.id);
+      loadSuggestions(version.content);
+      setStatus('idle');
+    } catch (err) {
+      setStatus('error', err instanceof Error ? err.message : 'Failed to save version');
+    } finally {
+      setIsSavingDraft(false);
+    }
+  };
+
+  const handleDiscardDraft = async () => {
+    if (!session?.id) return;
+    const entry = session.versions[session.currentVersionIndex];
+    if (!entry || !entry.isDraft) return;
+
+    setIsDiscardingDraft(true);
+    try {
+      await generationsApi.discardDraft(session.id, entry.id);
+      removeDraft(entry.id, entry.baseVersionId);
+      const baseVersion = session.versions.find((v) => v.id === entry.baseVersionId);
+      if (baseVersion) {
+        updateUrlForVersion(baseVersion.id);
+        setContent(baseVersion.content);
+        loadSuggestions(baseVersion.content);
+      }
+    } catch (err) {
+      setStatus('error', err instanceof Error ? err.message : 'Failed to discard draft');
+    } finally {
+      setIsDiscardingDraft(false);
+    }
+  };
+
+  const handleRenameVersion = async (versionId: string, name: string | null) => {
+    if (!session?.id) return;
+    try {
+      const updated = await generationsApi.updateVersion(session.id, versionId, { name });
+      updateVersionMeta(versionId, { name: updated.name });
+    } catch (err) {
+      setStatus('error', err instanceof Error ? err.message : 'Failed to rename version');
+    }
+  };
+
+  const handleToggleFavorite = async (versionId: string, favorite: boolean) => {
+    if (!session?.id) return;
+    try {
+      const updated = await generationsApi.updateVersion(session.id, versionId, { favorite });
+      updateVersionMeta(versionId, { favorite: updated.favorite });
+    } catch (err) {
+      setStatus('error', err instanceof Error ? err.message : 'Failed to update favorite');
     }
   };
 
@@ -293,8 +456,15 @@ export function GenerationWorkspace({ type }: GenerationWorkspaceProps) {
               )}
             </>
           ) : (
-            <div className="flex-1 overflow-y-auto">
-              <VersionSidebar />
+            <div className="flex-1 overflow-hidden">
+              <VersionSidebar 
+                onSaveDraft={handleSaveDraft}
+                onDiscardDraft={handleDiscardDraft}
+                onRename={handleRenameVersion}
+                onToggleFavorite={handleToggleFavorite}
+                isSaving={isSavingDraft}
+                isDiscarding={isDiscardingDraft}
+              />
             </div>
           )}
         </div>

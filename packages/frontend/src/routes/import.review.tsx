@@ -15,6 +15,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
+import { PageContent, PageHeaderBar } from '@/components/layout/page-shell';
+import { PageTitleBar } from '@/components/layout/page-title-bar';
 import {
   IconAlertTriangle,
   IconArrowLeft,
@@ -330,275 +332,277 @@ function ImportReviewPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background pb-20">
-      <header className="sticky top-0 z-10 bg-background/80 backdrop-blur-sm border-b p-4">
-        <div className="container max-w-5xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
+    <>
+      <PageHeaderBar>
+        <PageTitleBar
+          title="Review Import"
+          subtitle={`${selectedCount} selected`}
+          leading={
             <Button variant="ghost" size="icon" onClick={() => navigate({ to: '/import' })}>
               <IconArrowLeft className="w-5 h-5" />
             </Button>
-            <div>
-              <h1 className="text-xl font-bold">Review Import</h1>
-              <p className="text-xs text-muted-foreground">{selectedCount} selected</p>
-            </div>
-          </div>
-          <Button onClick={handleCommit} disabled={committing || selectedCount === 0} className="gap-2">
-            {committing && <IconLoader2 className="w-4 h-4 animate-spin" />}
-            Import Selected
-          </Button>
-        </div>
-      </header>
+          }
+          actions={
+            <Button onClick={handleCommit} disabled={committing || selectedCount === 0} className="gap-2">
+              {committing && <IconLoader2 className="w-4 h-4 animate-spin" />}
+              Import Selected
+            </Button>
+          }
+        />
+      </PageHeaderBar>
 
-      <main className="container max-w-5xl mx-auto p-4 space-y-8 mt-4">
-        {committing && progress && (
-          <Card className="border-primary/20 bg-primary/5 mb-6 animate-in fade-in slide-in-from-top-2 duration-300">
-            <CardHeader className="pb-3">
-              <div className="flex justify-between items-center">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <IconLoader2 className="w-4 h-4 animate-spin text-primary" />
-                  Importing...
-                </CardTitle>
-                <span className="text-sm text-muted-foreground font-mono">
-                  {Math.round((progress.completedSteps / progress.totalSteps) * 100)}%
-                </span>
-              </div>
-              <CardDescription>{progress.currentStep}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="h-2 w-full bg-secondary/50 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-primary transition-all duration-500 ease-in-out"
-                  style={{ width: `${(progress.completedSteps / progress.totalSteps) * 100}%` }}
-                />
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {!data.validation.valid && (
-          <Card className="border-yellow-200 bg-yellow-50/60">
-            <CardHeader>
-              <CardTitle className="text-base">Validation issues</CardTitle>
-              <CardDescription>AI extracted content may need review.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ul className="list-disc list-inside text-sm text-yellow-800 space-y-1">
-                {data.validation.errors.map((e) => (
-                  <li key={e}>{e}</li>
-                ))}
-              </ul>
-            </CardContent>
-          </Card>
-        )}
-
-        {data.duplicates.summary.likelyDuplicates > 0 && (
-          <Card className="border-orange-200 bg-orange-50/60">
-            <CardHeader>
-              <CardTitle className="text-base">Potential duplicates detected</CardTitle>
-              <CardDescription>
-                {data.duplicates.summary.likelyDuplicates} / {data.duplicates.summary.totalItems} items look like duplicates.
-              </CardDescription>
-            </CardHeader>
-          </Card>
-        )}
-
-        {commitError && (
-          <Card className="border-destructive/40 bg-destructive/10">
-            <CardHeader>
-              <CardTitle className="text-base text-destructive">Import failed</CardTitle>
-              <CardDescription className="text-destructive">
-                <div className="space-y-4">
-                  <p>{commitError}</p>
-                  <div className="bg-background/50 p-3 rounded border border-destructive/20 text-sm text-foreground">
-                    <strong>Note:</strong> Partial import may have occurred due to multi-call commit.
-                    Your selections are preserved so you can retry.
-                  </div>
-                  <div className="flex gap-3 pt-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="border-destructive/30 hover:bg-destructive/10 hover:text-destructive bg-background"
-                      onClick={() => navigate({ to: '/history' })}
-                    >
-                      <IconHistory className="w-4 h-4 mr-2" />
-                      Go to Change History
-                    </Button>
-                    <Button size="sm" variant="destructive" onClick={handleCommit}>
-                      <IconRefresh className="w-4 h-4 mr-2" />
-                      Retry Import
-                    </Button>
-                  </div>
+      <PageContent>
+        <div className="max-w-5xl mx-auto space-y-8">
+          {committing && progress && (
+            <Card className="border-primary/20 bg-primary/5 mb-6 animate-in fade-in slide-in-from-top-2 duration-300">
+              <CardHeader className="pb-3">
+                <div className="flex justify-between items-center">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <IconLoader2 className="w-4 h-4 animate-spin text-primary" />
+                    Importing...
+                  </CardTitle>
+                  <span className="text-sm text-muted-foreground font-mono">
+                    {Math.round((progress.completedSteps / progress.totalSteps) * 100)}%
+                  </span>
                 </div>
-              </CardDescription>
-            </CardHeader>
-          </Card>
-        )}
-
-        {/* Profile */}
-        {data.parsed.profile && (
-          <SectionCard
-            title="Profile"
-            description="Contact info and summary"
-            checked={selection.profile}
-            onCheckChange={(checked) => setSelection((s) => ({ ...s, profile: checked }))}
-          >
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-              <Field label="Name" value={data.parsed.profile.name ?? ''} />
-              <Field label="Email" value={data.parsed.profile.email ?? ''} />
-              <Field label="Phone" value={data.parsed.profile.phone ?? ''} />
-              <Field label="Location" value={data.parsed.profile.location ?? ''} />
-              <div className="md:col-span-2">
-                <Label className="text-muted-foreground">Summary</Label>
-                <div className="text-muted-foreground whitespace-pre-wrap">
-                  {data.parsed.profile.summary ?? ''}
+                <CardDescription>{progress.currentStep}</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="h-2 w-full bg-secondary/50 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-primary transition-all duration-500 ease-in-out"
+                    style={{ width: `${(progress.completedSteps / progress.totalSteps) * 100}%` }}
+                  />
                 </div>
-              </div>
-            </div>
-          </SectionCard>
-        )}
+              </CardContent>
+            </Card>
+          )}
 
-        {/* Roles */}
-        <SectionTitle title="Roles" count={data.parsed.roles.length} />
-        <div className="space-y-3">
-          {data.duplicates.roles.map((r, i) => (
-            <ItemCard
-              key={i}
-              checked={selection.roles.has(i)}
-              onCheckedChange={() => toggleSetItem('roles', i)}
-              isDuplicate={r.isLikelyDuplicate}
-              duplicateDetails={r.duplicates[0]?.matchDetails}
-            >
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <div className="font-medium">{r.item.title}</div>
-                  <div className="text-sm text-muted-foreground">{r.item.company}</div>
-                </div>
-                <div className="text-sm text-muted-foreground text-right">
-                  {r.item.startDate} – {r.item.current ? 'Present' : r.item.endDate ?? 'Present'}
-                </div>
-              </div>
-              <div className="flex gap-2 mt-2">
-                <Badge variant="outline" className="text-xs font-normal">
-                  {data.parsed.experienceItems.filter((x) => x.roleIndex === i).length} experience items
-                </Badge>
-                <Badge variant="outline" className="text-xs font-normal">
-                  {data.parsed.achievements.filter((x) => x.roleIndex === i).length} achievements
-                </Badge>
-              </div>
-            </ItemCard>
-          ))}
-          {data.parsed.roles.length === 0 && <EmptyLine text="No roles found." />}
-        </div>
-
-        {/* Skills */}
-        <SectionTitle title="Skills" count={data.parsed.skills.length} />
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {data.duplicates.skills.map((s, i) => (
-            <ItemCard
-              key={i}
-              checked={selection.skills.has(i)}
-              onCheckedChange={() => toggleSetItem('skills', i)}
-              isDuplicate={s.isLikelyDuplicate}
-              duplicateDetails={s.duplicates[0]?.matchDetails}
-              compact
-            >
-              <div className="flex items-center justify-between gap-2">
-                <span className="font-medium">{s.item.name}</span>
-                {s.item.proficiency && (
-                  <span className="text-xs text-muted-foreground capitalize">{s.item.proficiency}</span>
-                )}
-              </div>
-            </ItemCard>
-          ))}
-          {data.parsed.skills.length === 0 && <EmptyLine text="No skills found." />}
-        </div>
-
-        {/* Education */}
-        <SectionTitle title="Education" count={data.parsed.education.length} />
-        <div className="space-y-3">
-          {data.duplicates.education.map((e, i) => (
-            <ItemCard
-              key={i}
-              checked={selection.education.has(i)}
-              onCheckedChange={() => toggleSetItem('education', i)}
-              isDuplicate={e.isLikelyDuplicate}
-              duplicateDetails={e.duplicates[0]?.matchDetails}
-            >
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <div className="font-medium">{e.item.institution}</div>
-                  <div className="text-sm text-muted-foreground">
-                    {e.item.degree}
-                    {e.item.field ? ` in ${e.item.field}` : ''}
-                  </div>
-                </div>
-                <div className="text-sm text-muted-foreground text-right">
-                  {e.item.startDate ?? '?'} – {e.item.endDate ?? 'Present'}
-                </div>
-              </div>
-            </ItemCard>
-          ))}
-          {data.parsed.education.length === 0 && <EmptyLine text="No education found." />}
-        </div>
-
-        {/* Projects */}
-        <SectionTitle title="Projects" count={data.parsed.projects.length} />
-        <div className="space-y-3">
-          {data.parsed.projects.map((p, i) => (
-            <ItemCard
-              key={i}
-              checked={selection.projects.has(i)}
-              onCheckedChange={() => toggleSetItem('projects', i)}
-            >
-              <div className="font-medium">{p.name}</div>
-              {p.description && <div className="text-sm text-muted-foreground mt-1">{p.description}</div>}
-              {p.technologies && p.technologies.length > 0 && (
-                <div className="flex flex-wrap gap-1 mt-2">
-                  {p.technologies.map((t) => (
-                    <Badge key={t} variant="secondary" className="text-[10px]">
-                      {t}
-                    </Badge>
+          {!data.validation.valid && (
+            <Card className="border-yellow-200 bg-yellow-50/60">
+              <CardHeader>
+                <CardTitle className="text-base">Validation issues</CardTitle>
+                <CardDescription>AI extracted content may need review.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ul className="list-disc list-inside text-sm text-yellow-800 space-y-1">
+                  {data.validation.errors.map((e) => (
+                    <li key={e}>{e}</li>
                   ))}
-                </div>
-              )}
-            </ItemCard>
-          ))}
-          {data.parsed.projects.length === 0 && <EmptyLine text="No projects found." />}
-        </div>
+                </ul>
+              </CardContent>
+            </Card>
+          )}
 
-        {/* Standalone achievements */}
-        <SectionTitle title="Standalone Achievements" count={standaloneAchievementIndices.length} />
-        <div className="space-y-3">
-          {standaloneAchievementIndices.map((idx) => {
-            const a = data.parsed.achievements[idx];
-            const dup = data.duplicates.achievements[idx];
-            return (
+          {data.duplicates.summary.likelyDuplicates > 0 && (
+            <Card className="border-orange-200 bg-orange-50/60">
+              <CardHeader>
+                <CardTitle className="text-base">Potential duplicates detected</CardTitle>
+                <CardDescription>
+                  {data.duplicates.summary.likelyDuplicates} / {data.duplicates.summary.totalItems} items look like duplicates.
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          )}
+
+          {commitError && (
+            <Card className="border-destructive/40 bg-destructive/10">
+              <CardHeader>
+                <CardTitle className="text-base text-destructive">Import failed</CardTitle>
+                <CardDescription className="text-destructive">
+                  <div className="space-y-4">
+                    <p>{commitError}</p>
+                    <div className="bg-background/50 p-3 rounded border border-destructive/20 text-sm text-foreground">
+                      <strong>Note:</strong> Partial import may have occurred due to multi-call commit.
+                      Your selections are preserved so you can retry.
+                    </div>
+                    <div className="flex gap-3 pt-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="border-destructive/30 hover:bg-destructive/10 hover:text-destructive bg-background"
+                        onClick={() => navigate({ to: '/history' })}
+                      >
+                        <IconHistory className="w-4 h-4 mr-2" />
+                        Go to Change History
+                      </Button>
+                      <Button size="sm" variant="destructive" onClick={handleCommit}>
+                        <IconRefresh className="w-4 h-4 mr-2" />
+                        Retry Import
+                      </Button>
+                    </div>
+                  </div>
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          )}
+
+          {/* Profile */}
+          {data.parsed.profile && (
+            <SectionCard
+              title="Profile"
+              description="Contact info and summary"
+              checked={selection.profile}
+              onCheckChange={(checked) => setSelection((s) => ({ ...s, profile: checked }))}
+            >
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <Field label="Name" value={data.parsed.profile.name ?? ''} />
+                <Field label="Email" value={data.parsed.profile.email ?? ''} />
+                <Field label="Phone" value={data.parsed.profile.phone ?? ''} />
+                <Field label="Location" value={data.parsed.profile.location ?? ''} />
+                <div className="md:col-span-2">
+                  <Label className="text-muted-foreground">Summary</Label>
+                  <div className="text-muted-foreground whitespace-pre-wrap">
+                    {data.parsed.profile.summary ?? ''}
+                  </div>
+                </div>
+              </div>
+            </SectionCard>
+          )}
+
+          {/* Roles */}
+          <SectionTitle title="Roles" count={data.parsed.roles.length} />
+          <div className="space-y-3">
+            {data.duplicates.roles.map((r, i) => (
               <ItemCard
-                key={idx}
-                checked={selection.standaloneAchievements.has(idx)}
-                onCheckedChange={() => toggleSetItem('standaloneAchievements', idx)}
-                isDuplicate={dup?.isLikelyDuplicate}
-                duplicateDetails={dup?.duplicates[0]?.matchDetails}
+                key={i}
+                checked={selection.roles.has(i)}
+                onCheckedChange={() => toggleSetItem('roles', i)}
+                isDuplicate={r.isLikelyDuplicate}
+                duplicateDetails={r.duplicates[0]?.matchDetails}
               >
-                <div className="text-sm space-y-1">
+                <div className="flex items-start justify-between gap-4">
                   <div>
-                    <span className="font-medium">P:</span> {a.problem}
+                    <div className="font-medium">{r.item.title}</div>
+                    <div className="text-sm text-muted-foreground">{r.item.company}</div>
                   </div>
-                  <div>
-                    <span className="font-medium">A:</span> {a.action}
+                  <div className="text-sm text-muted-foreground text-right">
+                    {r.item.startDate} – {r.item.current ? 'Present' : r.item.endDate ?? 'Present'}
                   </div>
-                  <div>
-                    <span className="font-medium">R:</span> {a.outcome}
-                  </div>
-                  {a.metrics && <div className="text-muted-foreground">{a.metrics}</div>}
+                </div>
+                <div className="flex gap-2 mt-2">
+                  <Badge variant="outline" className="text-xs font-normal">
+                    {data.parsed.experienceItems.filter((x) => x.roleIndex === i).length} experience items
+                  </Badge>
+                  <Badge variant="outline" className="text-xs font-normal">
+                    {data.parsed.achievements.filter((x) => x.roleIndex === i).length} achievements
+                  </Badge>
                 </div>
               </ItemCard>
-            );
-          })}
-          {standaloneAchievementIndices.length === 0 && <EmptyLine text="No standalone achievements found." />}
+            ))}
+            {data.parsed.roles.length === 0 && <EmptyLine text="No roles found." />}
+          </div>
+
+          {/* Skills */}
+          <SectionTitle title="Skills" count={data.parsed.skills.length} />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {data.duplicates.skills.map((s, i) => (
+              <ItemCard
+                key={i}
+                checked={selection.skills.has(i)}
+                onCheckedChange={() => toggleSetItem('skills', i)}
+                isDuplicate={s.isLikelyDuplicate}
+                duplicateDetails={s.duplicates[0]?.matchDetails}
+                compact
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-medium">{s.item.name}</span>
+                  {s.item.proficiency && (
+                    <span className="text-xs text-muted-foreground capitalize">{s.item.proficiency}</span>
+                  )}
+                </div>
+              </ItemCard>
+            ))}
+            {data.parsed.skills.length === 0 && <EmptyLine text="No skills found." />}
+          </div>
+
+          {/* Education */}
+          <SectionTitle title="Education" count={data.parsed.education.length} />
+          <div className="space-y-3">
+            {data.duplicates.education.map((e, i) => (
+              <ItemCard
+                key={i}
+                checked={selection.education.has(i)}
+                onCheckedChange={() => toggleSetItem('education', i)}
+                isDuplicate={e.isLikelyDuplicate}
+                duplicateDetails={e.duplicates[0]?.matchDetails}
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <div className="font-medium">{e.item.institution}</div>
+                    <div className="text-sm text-muted-foreground">
+                      {e.item.degree}
+                      {e.item.field ? ` in ${e.item.field}` : ''}
+                    </div>
+                  </div>
+                  <div className="text-sm text-muted-foreground text-right">
+                    {e.item.startDate ?? '?'} – {e.item.endDate ?? 'Present'}
+                  </div>
+                </div>
+              </ItemCard>
+            ))}
+            {data.parsed.education.length === 0 && <EmptyLine text="No education found." />}
+          </div>
+
+          {/* Projects */}
+          <SectionTitle title="Projects" count={data.parsed.projects.length} />
+          <div className="space-y-3">
+            {data.parsed.projects.map((p, i) => (
+              <ItemCard
+                key={i}
+                checked={selection.projects.has(i)}
+                onCheckedChange={() => toggleSetItem('projects', i)}
+              >
+                <div className="font-medium">{p.name}</div>
+                {p.description && <div className="text-sm text-muted-foreground mt-1">{p.description}</div>}
+                {p.technologies && p.technologies.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {p.technologies.map((t) => (
+                      <Badge key={t} variant="secondary" className="text-[10px]">
+                        {t}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </ItemCard>
+            ))}
+            {data.parsed.projects.length === 0 && <EmptyLine text="No projects found." />}
+          </div>
+
+          {/* Standalone achievements */}
+          <SectionTitle title="Standalone Achievements" count={standaloneAchievementIndices.length} />
+          <div className="space-y-3">
+            {standaloneAchievementIndices.map((idx) => {
+              const a = data.parsed.achievements[idx];
+              const dup = data.duplicates.achievements[idx];
+              return (
+                <ItemCard
+                  key={idx}
+                  checked={selection.standaloneAchievements.has(idx)}
+                  onCheckedChange={() => toggleSetItem('standaloneAchievements', idx)}
+                  isDuplicate={dup?.isLikelyDuplicate}
+                  duplicateDetails={dup?.duplicates[0]?.matchDetails}
+                >
+                  <div className="text-sm space-y-1">
+                    <div>
+                      <span className="font-medium">P:</span> {a.problem}
+                    </div>
+                    <div>
+                      <span className="font-medium">A:</span> {a.action}
+                    </div>
+                    <div>
+                      <span className="font-medium">R:</span> {a.outcome}
+                    </div>
+                    {a.metrics && <div className="text-muted-foreground">{a.metrics}</div>}
+                  </div>
+                </ItemCard>
+              );
+            })}
+            {standaloneAchievementIndices.length === 0 && <EmptyLine text="No standalone achievements found." />}
+          </div>
         </div>
-      </main>
-    </div>
+      </PageContent>
+    </>
   );
 }
 

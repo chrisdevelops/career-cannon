@@ -12,9 +12,19 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as KbRouteImport } from './routes/kb'
 import { Route as ImportRouteImport } from './routes/import'
 import { Route as HistoryRouteImport } from './routes/history'
+import { Route as GenerationsRouteImport } from './routes/generations'
 import { Route as GenerateRouteImport } from './routes/generate'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as SettingsIndexRouteImport } from './routes/settings/index'
+import { Route as PromptsIndexRouteImport } from './routes/prompts/index'
 import { Route as KbIndexRouteImport } from './routes/kb.index'
+import { Route as SettingsApiKeysRouteImport } from './routes/settings/api-keys'
+import { Route as PromptsVoiceBlueprintRouteImport } from './routes/prompts/voice-blueprint'
+import { Route as PromptsSuggestionsRouteImport } from './routes/prompts/suggestions'
+import { Route as PromptsResumeParserRouteImport } from './routes/prompts/resume-parser'
+import { Route as PromptsResumeGenerationRouteImport } from './routes/prompts/resume-generation'
+import { Route as PromptsRefinementRouteImport } from './routes/prompts/refinement'
+import { Route as PromptsCoverLetterRouteImport } from './routes/prompts/cover-letter'
 import { Route as KbVoiceRouteImport } from './routes/kb.voice'
 import { Route as KbSkillsRouteImport } from './routes/kb.skills'
 import { Route as KbRolesRouteImport } from './routes/kb.roles'
@@ -40,6 +50,11 @@ const HistoryRoute = HistoryRouteImport.update({
   path: '/history',
   getParentRoute: () => rootRouteImport,
 } as any)
+const GenerationsRoute = GenerationsRouteImport.update({
+  id: '/generations',
+  path: '/generations',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const GenerateRoute = GenerateRouteImport.update({
   id: '/generate',
   path: '/generate',
@@ -50,10 +65,55 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SettingsIndexRoute = SettingsIndexRouteImport.update({
+  id: '/settings/',
+  path: '/settings/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PromptsIndexRoute = PromptsIndexRouteImport.update({
+  id: '/prompts/',
+  path: '/prompts/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const KbIndexRoute = KbIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => KbRoute,
+} as any)
+const SettingsApiKeysRoute = SettingsApiKeysRouteImport.update({
+  id: '/settings/api-keys',
+  path: '/settings/api-keys',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PromptsVoiceBlueprintRoute = PromptsVoiceBlueprintRouteImport.update({
+  id: '/prompts/voice-blueprint',
+  path: '/prompts/voice-blueprint',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PromptsSuggestionsRoute = PromptsSuggestionsRouteImport.update({
+  id: '/prompts/suggestions',
+  path: '/prompts/suggestions',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PromptsResumeParserRoute = PromptsResumeParserRouteImport.update({
+  id: '/prompts/resume-parser',
+  path: '/prompts/resume-parser',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PromptsResumeGenerationRoute = PromptsResumeGenerationRouteImport.update({
+  id: '/prompts/resume-generation',
+  path: '/prompts/resume-generation',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PromptsRefinementRoute = PromptsRefinementRouteImport.update({
+  id: '/prompts/refinement',
+  path: '/prompts/refinement',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PromptsCoverLetterRoute = PromptsCoverLetterRouteImport.update({
+  id: '/prompts/cover-letter',
+  path: '/prompts/cover-letter',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const KbVoiceRoute = KbVoiceRouteImport.update({
   id: '/voice',
@@ -104,6 +164,7 @@ const GenerateCoverLetterRoute = GenerateCoverLetterRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/generate': typeof GenerateRouteWithChildren
+  '/generations': typeof GenerationsRoute
   '/history': typeof HistoryRoute
   '/import': typeof ImportRouteWithChildren
   '/kb': typeof KbRouteWithChildren
@@ -116,11 +177,21 @@ export interface FileRoutesByFullPath {
   '/kb/roles': typeof KbRolesRoute
   '/kb/skills': typeof KbSkillsRoute
   '/kb/voice': typeof KbVoiceRoute
+  '/prompts/cover-letter': typeof PromptsCoverLetterRoute
+  '/prompts/refinement': typeof PromptsRefinementRoute
+  '/prompts/resume-generation': typeof PromptsResumeGenerationRoute
+  '/prompts/resume-parser': typeof PromptsResumeParserRoute
+  '/prompts/suggestions': typeof PromptsSuggestionsRoute
+  '/prompts/voice-blueprint': typeof PromptsVoiceBlueprintRoute
+  '/settings/api-keys': typeof SettingsApiKeysRoute
   '/kb/': typeof KbIndexRoute
+  '/prompts': typeof PromptsIndexRoute
+  '/settings': typeof SettingsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/generate': typeof GenerateRouteWithChildren
+  '/generations': typeof GenerationsRoute
   '/history': typeof HistoryRoute
   '/import': typeof ImportRouteWithChildren
   '/generate/cover-letter': typeof GenerateCoverLetterRoute
@@ -132,12 +203,22 @@ export interface FileRoutesByTo {
   '/kb/roles': typeof KbRolesRoute
   '/kb/skills': typeof KbSkillsRoute
   '/kb/voice': typeof KbVoiceRoute
+  '/prompts/cover-letter': typeof PromptsCoverLetterRoute
+  '/prompts/refinement': typeof PromptsRefinementRoute
+  '/prompts/resume-generation': typeof PromptsResumeGenerationRoute
+  '/prompts/resume-parser': typeof PromptsResumeParserRoute
+  '/prompts/suggestions': typeof PromptsSuggestionsRoute
+  '/prompts/voice-blueprint': typeof PromptsVoiceBlueprintRoute
+  '/settings/api-keys': typeof SettingsApiKeysRoute
   '/kb': typeof KbIndexRoute
+  '/prompts': typeof PromptsIndexRoute
+  '/settings': typeof SettingsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/generate': typeof GenerateRouteWithChildren
+  '/generations': typeof GenerationsRoute
   '/history': typeof HistoryRoute
   '/import': typeof ImportRouteWithChildren
   '/kb': typeof KbRouteWithChildren
@@ -150,13 +231,23 @@ export interface FileRoutesById {
   '/kb/roles': typeof KbRolesRoute
   '/kb/skills': typeof KbSkillsRoute
   '/kb/voice': typeof KbVoiceRoute
+  '/prompts/cover-letter': typeof PromptsCoverLetterRoute
+  '/prompts/refinement': typeof PromptsRefinementRoute
+  '/prompts/resume-generation': typeof PromptsResumeGenerationRoute
+  '/prompts/resume-parser': typeof PromptsResumeParserRoute
+  '/prompts/suggestions': typeof PromptsSuggestionsRoute
+  '/prompts/voice-blueprint': typeof PromptsVoiceBlueprintRoute
+  '/settings/api-keys': typeof SettingsApiKeysRoute
   '/kb/': typeof KbIndexRoute
+  '/prompts/': typeof PromptsIndexRoute
+  '/settings/': typeof SettingsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/generate'
+    | '/generations'
     | '/history'
     | '/import'
     | '/kb'
@@ -169,11 +260,21 @@ export interface FileRouteTypes {
     | '/kb/roles'
     | '/kb/skills'
     | '/kb/voice'
+    | '/prompts/cover-letter'
+    | '/prompts/refinement'
+    | '/prompts/resume-generation'
+    | '/prompts/resume-parser'
+    | '/prompts/suggestions'
+    | '/prompts/voice-blueprint'
+    | '/settings/api-keys'
     | '/kb/'
+    | '/prompts'
+    | '/settings'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/generate'
+    | '/generations'
     | '/history'
     | '/import'
     | '/generate/cover-letter'
@@ -185,11 +286,21 @@ export interface FileRouteTypes {
     | '/kb/roles'
     | '/kb/skills'
     | '/kb/voice'
+    | '/prompts/cover-letter'
+    | '/prompts/refinement'
+    | '/prompts/resume-generation'
+    | '/prompts/resume-parser'
+    | '/prompts/suggestions'
+    | '/prompts/voice-blueprint'
+    | '/settings/api-keys'
     | '/kb'
+    | '/prompts'
+    | '/settings'
   id:
     | '__root__'
     | '/'
     | '/generate'
+    | '/generations'
     | '/history'
     | '/import'
     | '/kb'
@@ -202,15 +313,34 @@ export interface FileRouteTypes {
     | '/kb/roles'
     | '/kb/skills'
     | '/kb/voice'
+    | '/prompts/cover-letter'
+    | '/prompts/refinement'
+    | '/prompts/resume-generation'
+    | '/prompts/resume-parser'
+    | '/prompts/suggestions'
+    | '/prompts/voice-blueprint'
+    | '/settings/api-keys'
     | '/kb/'
+    | '/prompts/'
+    | '/settings/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   GenerateRoute: typeof GenerateRouteWithChildren
+  GenerationsRoute: typeof GenerationsRoute
   HistoryRoute: typeof HistoryRoute
   ImportRoute: typeof ImportRouteWithChildren
   KbRoute: typeof KbRouteWithChildren
+  PromptsCoverLetterRoute: typeof PromptsCoverLetterRoute
+  PromptsRefinementRoute: typeof PromptsRefinementRoute
+  PromptsResumeGenerationRoute: typeof PromptsResumeGenerationRoute
+  PromptsResumeParserRoute: typeof PromptsResumeParserRoute
+  PromptsSuggestionsRoute: typeof PromptsSuggestionsRoute
+  PromptsVoiceBlueprintRoute: typeof PromptsVoiceBlueprintRoute
+  SettingsApiKeysRoute: typeof SettingsApiKeysRoute
+  PromptsIndexRoute: typeof PromptsIndexRoute
+  SettingsIndexRoute: typeof SettingsIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -236,6 +366,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HistoryRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/generations': {
+      id: '/generations'
+      path: '/generations'
+      fullPath: '/generations'
+      preLoaderRoute: typeof GenerationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/generate': {
       id: '/generate'
       path: '/generate'
@@ -250,12 +387,75 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/settings/': {
+      id: '/settings/'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/prompts/': {
+      id: '/prompts/'
+      path: '/prompts'
+      fullPath: '/prompts'
+      preLoaderRoute: typeof PromptsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/kb/': {
       id: '/kb/'
       path: '/'
       fullPath: '/kb/'
       preLoaderRoute: typeof KbIndexRouteImport
       parentRoute: typeof KbRoute
+    }
+    '/settings/api-keys': {
+      id: '/settings/api-keys'
+      path: '/settings/api-keys'
+      fullPath: '/settings/api-keys'
+      preLoaderRoute: typeof SettingsApiKeysRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/prompts/voice-blueprint': {
+      id: '/prompts/voice-blueprint'
+      path: '/prompts/voice-blueprint'
+      fullPath: '/prompts/voice-blueprint'
+      preLoaderRoute: typeof PromptsVoiceBlueprintRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/prompts/suggestions': {
+      id: '/prompts/suggestions'
+      path: '/prompts/suggestions'
+      fullPath: '/prompts/suggestions'
+      preLoaderRoute: typeof PromptsSuggestionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/prompts/resume-parser': {
+      id: '/prompts/resume-parser'
+      path: '/prompts/resume-parser'
+      fullPath: '/prompts/resume-parser'
+      preLoaderRoute: typeof PromptsResumeParserRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/prompts/resume-generation': {
+      id: '/prompts/resume-generation'
+      path: '/prompts/resume-generation'
+      fullPath: '/prompts/resume-generation'
+      preLoaderRoute: typeof PromptsResumeGenerationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/prompts/refinement': {
+      id: '/prompts/refinement'
+      path: '/prompts/refinement'
+      fullPath: '/prompts/refinement'
+      preLoaderRoute: typeof PromptsRefinementRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/prompts/cover-letter': {
+      id: '/prompts/cover-letter'
+      path: '/prompts/cover-letter'
+      fullPath: '/prompts/cover-letter'
+      preLoaderRoute: typeof PromptsCoverLetterRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/kb/voice': {
       id: '/kb/voice'
@@ -373,9 +573,19 @@ const KbRouteWithChildren = KbRoute._addFileChildren(KbRouteChildren)
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   GenerateRoute: GenerateRouteWithChildren,
+  GenerationsRoute: GenerationsRoute,
   HistoryRoute: HistoryRoute,
   ImportRoute: ImportRouteWithChildren,
   KbRoute: KbRouteWithChildren,
+  PromptsCoverLetterRoute: PromptsCoverLetterRoute,
+  PromptsRefinementRoute: PromptsRefinementRoute,
+  PromptsResumeGenerationRoute: PromptsResumeGenerationRoute,
+  PromptsResumeParserRoute: PromptsResumeParserRoute,
+  PromptsSuggestionsRoute: PromptsSuggestionsRoute,
+  PromptsVoiceBlueprintRoute: PromptsVoiceBlueprintRoute,
+  SettingsApiKeysRoute: SettingsApiKeysRoute,
+  PromptsIndexRoute: PromptsIndexRoute,
+  SettingsIndexRoute: SettingsIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

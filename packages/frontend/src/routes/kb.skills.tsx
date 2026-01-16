@@ -2,7 +2,8 @@ import { createFileRoute } from '@tanstack/react-router';
 import { useState, useEffect } from 'react';
 import { IconPlus, IconTrash, IconLoader2, IconPencil, IconX, IconCheck } from '@tabler/icons-react';
 import { skillsApi, type Skill } from '@/lib/api';
-import { PageHeader } from '@/components/kb/page-header';
+import { PageContent, PageHeaderBar } from '@/components/layout/page-shell';
+import { PageTitleBar } from '@/components/layout/page-title-bar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -88,89 +89,93 @@ function SkillsPage() {
   }
 
   return (
-    <div className="p-8">
-      <PageHeader
-        title="Skills"
-        description="Your technical and soft skills with proficiency levels"
-        actions={
-          <Button onClick={() => setShowForm(true)} className="gap-2">
-            <IconPlus className="w-4 h-4" />
-            Add Skill
-          </Button>
-        }
-      />
-
-      {/* Filters */}
-      <div className="flex gap-2 mb-6">
-        <Button
-          variant={filterCategory === null ? 'default' : 'outline'}
-          size="sm"
-          onClick={() => setFilterCategory(null)}
-        >
-          All
-        </Button>
-        {CATEGORIES.map((cat) => (
-          <Button
-            key={cat.value}
-            variant={filterCategory === cat.value ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setFilterCategory(cat.value)}
-          >
-            {cat.label}
-          </Button>
-        ))}
-      </div>
-
-      {showForm && (
-        <SkillForm
-          onSave={handleAdd}
-          onCancel={() => setShowForm(false)}
+    <>
+      <PageHeaderBar>
+        <PageTitleBar
+          title="Skills"
+          subtitle="Your technical and soft skills with proficiency levels"
+          actions={
+            <Button onClick={() => setShowForm(true)} className="gap-2">
+              <IconPlus className="w-4 h-4" />
+              Add Skill
+            </Button>
+          }
         />
-      )}
+      </PageHeaderBar>
 
-      {Object.keys(filteredGroups).length === 0 && !showForm && (
-        <div className="text-center py-12 text-muted-foreground">
-          <p>No skills added yet.</p>
-          <p className="text-sm mt-1">Add your skills to include them in generated resumes.</p>
+      <PageContent>
+        {/* Filters */}
+        <div className="flex gap-2 mb-6">
+          <Button
+            variant={filterCategory === null ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setFilterCategory(null)}
+          >
+            All
+          </Button>
+          {CATEGORIES.map((cat) => (
+            <Button
+              key={cat.value}
+              variant={filterCategory === cat.value ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setFilterCategory(cat.value)}
+            >
+              {cat.label}
+            </Button>
+          ))}
         </div>
-      )}
 
-      <div className="space-y-6">
-        {Object.entries(filteredGroups).map(([category, categorySkills]) => {
-          const catInfo = CATEGORIES.find((c) => c.value === category);
-          return (
-            <div key={category}>
-              <h3 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
-                <span className={cn('px-2 py-0.5 rounded text-xs', catInfo?.color || 'bg-gray-100 text-gray-700')}>
-                  {catInfo?.label || 'Uncategorized'}
-                </span>
-                <span>({categorySkills.length})</span>
-              </h3>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                {categorySkills.map((skill) => (
-                  editingId === skill.id ? (
-                    <SkillForm
-                      key={skill.id}
-                      skill={skill}
-                      onSave={(data) => handleUpdate(skill.id, data)}
-                      onCancel={() => setEditingId(null)}
-                      compact
-                    />
-                  ) : (
-                    <SkillCard
-                      key={skill.id}
-                      skill={skill}
-                      onEdit={() => setEditingId(skill.id)}
-                      onDelete={() => handleDelete(skill.id)}
-                    />
-                  )
-                ))}
+        {showForm && (
+          <SkillForm
+            onSave={handleAdd}
+            onCancel={() => setShowForm(false)}
+          />
+        )}
+
+        {Object.keys(filteredGroups).length === 0 && !showForm && (
+          <div className="text-center py-12 text-muted-foreground">
+            <p>No skills added yet.</p>
+            <p className="text-sm mt-1">Add your skills to include them in generated resumes.</p>
+          </div>
+        )}
+
+        <div className="space-y-6">
+          {Object.entries(filteredGroups).map(([category, categorySkills]) => {
+            const catInfo = CATEGORIES.find((c) => c.value === category);
+            return (
+              <div key={category}>
+                <h3 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
+                  <span className={cn('px-2 py-0.5 rounded text-xs', catInfo?.color || 'bg-gray-100 text-gray-700')}>
+                    {catInfo?.label || 'Uncategorized'}
+                  </span>
+                  <span>({categorySkills.length})</span>
+                </h3>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                  {categorySkills.map((skill) => (
+                    editingId === skill.id ? (
+                      <SkillForm
+                        key={skill.id}
+                        skill={skill}
+                        onSave={(data) => handleUpdate(skill.id, data)}
+                        onCancel={() => setEditingId(null)}
+                        compact
+                      />
+                    ) : (
+                      <SkillCard
+                        key={skill.id}
+                        skill={skill}
+                        onEdit={() => setEditingId(skill.id)}
+                        onDelete={() => handleDelete(skill.id)}
+                      />
+                    )
+                  ))}
+                </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
+            );
+          })}
+        </div>
+      </PageContent>
+    </>
   );
 }
 
@@ -233,7 +238,7 @@ function SkillForm({ skill, onSave, onCancel, compact }: SkillFormProps) {
           <select
             id="category"
             value={data.category}
-            onChange={(e) => setData({ ...data, category: e.target.value })}
+            onChange={(e) => setData({ ...data, category: e.target.value as any })}
             className="w-full border rounded-md px-3 py-2 text-sm"
           >
             {CATEGORIES.map((cat) => (
@@ -246,7 +251,7 @@ function SkillForm({ skill, onSave, onCancel, compact }: SkillFormProps) {
           <select
             id="proficiency"
             value={data.proficiency}
-            onChange={(e) => setData({ ...data, proficiency: e.target.value })}
+            onChange={(e) => setData({ ...data, proficiency: e.target.value as any })}
             className="w-full border rounded-md px-3 py-2 text-sm"
           >
             {PROFICIENCIES.map((p) => (

@@ -2,7 +2,8 @@ import { createFileRoute } from '@tanstack/react-router';
 import { useState, useEffect } from 'react';
 import { IconPlus, IconTrash, IconLoader2, IconPencil, IconSchool } from '@tabler/icons-react';
 import { educationApi, type Education } from '@/lib/api';
-import { PageHeader } from '@/components/kb/page-header';
+import { PageContent, PageHeaderBar } from '@/components/layout/page-shell';
+import { PageTitleBar } from '@/components/layout/page-title-bar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -66,52 +67,55 @@ function EducationPage() {
   }
 
   return (
-    <div className="p-8">
-      <PageHeader
-        title="Education"
-        description="Your academic background and qualifications"
-        actions={
-          <Button onClick={() => setShowForm(true)} className="gap-2">
-            <IconPlus className="w-4 h-4" />
-            Add Education
-          </Button>
-        }
-      />
-
-      {showForm && (
-        <EducationForm
-          onSave={handleAdd}
-          onCancel={() => setShowForm(false)}
+    <>
+      <PageHeaderBar>
+        <PageTitleBar
+          title="Education"
+          subtitle="Your academic background and qualifications"
+          actions={
+            <Button onClick={() => setShowForm(true)} className="gap-2">
+              <IconPlus className="w-4 h-4" />
+              Add Education
+            </Button>
+          }
         />
-      )}
+      </PageHeaderBar>
+      <PageContent>
+        {showForm && (
+          <EducationForm
+            onSave={handleAdd}
+            onCancel={() => setShowForm(false)}
+          />
+        )}
 
-      {items.length === 0 && !showForm && (
-        <div className="text-center py-12 text-muted-foreground">
-          <p>No education entries added yet.</p>
-          <p className="text-sm mt-1">Add your degrees and certifications to showcase your background.</p>
+        {items.length === 0 && !showForm && (
+          <div className="text-center py-12 text-muted-foreground">
+            <p>No education entries added yet.</p>
+            <p className="text-sm mt-1">Add your degrees and certifications to showcase your background.</p>
+          </div>
+        )}
+
+        <div className="grid gap-4 md:grid-cols-2">
+          {items.map((item) => (
+            editingId === item.id ? (
+              <EducationForm
+                key={item.id}
+                education={item}
+                onSave={(data) => handleUpdate(item.id, data)}
+                onCancel={() => setEditingId(null)}
+              />
+            ) : (
+              <EducationCard
+                key={item.id}
+                education={item}
+                onEdit={() => setEditingId(item.id)}
+                onDelete={() => handleDelete(item.id)}
+              />
+            )
+          ))}
         </div>
-      )}
-
-      <div className="grid gap-4 md:grid-cols-2">
-        {items.map((item) => (
-          editingId === item.id ? (
-            <EducationForm
-              key={item.id}
-              education={item}
-              onSave={(data) => handleUpdate(item.id, data)}
-              onCancel={() => setEditingId(null)}
-            />
-          ) : (
-            <EducationCard
-              key={item.id}
-              education={item}
-              onEdit={() => setEditingId(item.id)}
-              onDelete={() => handleDelete(item.id)}
-            />
-          )
-        ))}
-      </div>
-    </div>
+      </PageContent>
+    </>
   );
 }
 

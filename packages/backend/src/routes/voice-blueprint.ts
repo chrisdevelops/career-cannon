@@ -10,20 +10,37 @@ const router = Router();
 // Helper to parse JSON fields
 function parseBlueprint(blueprint: {
   id: string;
-  tone: string | null;
-  formality: string | null;
-  vocabularyNotes: string | null;
-  sentenceLength: string | null;
-  avoid: string | null;
-  samples: string | null;
-  customPrompt: string | null;
+  tone?: string | null;
+  formality?: string | null;
+  sentenceLength?: string | null;
+  audience?: string | null;
+  pointOfView?: string | null;
+  energy?: string | null;
+  confidence?: string | null;
+  pacing?: string | null;
+  structureStyle?: string | null;
+  emphasis?: string | null;
+  vocabularyNotes?: string | null;
+  grammarNotes?: string | null;
+  punctuationStyle?: string | null;
+  preferredVerbs?: string | null;
+  preferredPhrases?: string | null;
+  bannedPhrases?: string | null;
+  avoid?: string | null;
+  samples?: string | null;
+  samplePairs?: string | null;
+  customPrompt?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }) {
   return {
     ...blueprint,
+    preferredVerbs: blueprint.preferredVerbs ? JSON.parse(blueprint.preferredVerbs) : null,
+    preferredPhrases: blueprint.preferredPhrases ? JSON.parse(blueprint.preferredPhrases) : null,
+    bannedPhrases: blueprint.bannedPhrases ? JSON.parse(blueprint.bannedPhrases) : null,
     avoid: blueprint.avoid ? JSON.parse(blueprint.avoid) : null,
     samples: blueprint.samples ? JSON.parse(blueprint.samples) : null,
+    samplePairs: blueprint.samplePairs ? JSON.parse(blueprint.samplePairs) : null,
   };
 }
 
@@ -55,8 +72,12 @@ router.post('/', validate(createVoiceBlueprintSchema), async (req, res) => {
 
     const data = {
       ...req.body,
+      preferredVerbs: req.body.preferredVerbs ? JSON.stringify(req.body.preferredVerbs) : null,
+      preferredPhrases: req.body.preferredPhrases ? JSON.stringify(req.body.preferredPhrases) : null,
+      bannedPhrases: req.body.bannedPhrases ? JSON.stringify(req.body.bannedPhrases) : null,
       avoid: req.body.avoid ? JSON.stringify(req.body.avoid) : null,
       samples: req.body.samples ? JSON.stringify(req.body.samples) : null,
+      samplePairs: req.body.samplePairs ? JSON.stringify(req.body.samplePairs) : null,
     };
 
     const blueprint = await prisma.voiceBlueprint.create({ data });
@@ -81,11 +102,23 @@ router.put('/', validate(updateVoiceBlueprintSchema), async (req, res) => {
 
     const data = {
       ...req.body,
+      preferredVerbs: req.body.preferredVerbs !== undefined
+        ? (req.body.preferredVerbs ? JSON.stringify(req.body.preferredVerbs) : null)
+        : undefined,
+      preferredPhrases: req.body.preferredPhrases !== undefined
+        ? (req.body.preferredPhrases ? JSON.stringify(req.body.preferredPhrases) : null)
+        : undefined,
+      bannedPhrases: req.body.bannedPhrases !== undefined
+        ? (req.body.bannedPhrases ? JSON.stringify(req.body.bannedPhrases) : null)
+        : undefined,
       avoid: req.body.avoid !== undefined
         ? (req.body.avoid ? JSON.stringify(req.body.avoid) : null)
         : undefined,
       samples: req.body.samples !== undefined
         ? (req.body.samples ? JSON.stringify(req.body.samples) : null)
+        : undefined,
+      samplePairs: req.body.samplePairs !== undefined
+        ? (req.body.samplePairs ? JSON.stringify(req.body.samplePairs) : null)
         : undefined,
     };
 

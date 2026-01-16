@@ -1,7 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { useState, useEffect, useCallback } from 'react';
 import { profileApi, type Profile } from '@/lib/api';
-import { PageHeader } from '@/components/kb/page-header';
+import { PageContent, PageHeaderBar } from '@/components/layout/page-shell';
+import { PageTitleBar } from '@/components/layout/page-title-bar';
 import { SaveIndicator } from '@/components/kb/save-indicator';
 import { useDebouncedCallback } from '@/hooks/use-debounce';
 import { Input } from '@/components/ui/input';
@@ -68,106 +69,110 @@ function ProfilePage() {
   }
 
   return (
-    <div className="p-8 max-w-2xl">
-      <PageHeader
-        title="Profile"
-        description="Your basic contact information and professional summary"
-        actions={<SaveIndicator status={saveStatus} error={error} />}
-      />
+    <>
+      <PageHeaderBar>
+        <PageTitleBar
+          title="Profile"
+          subtitle="Your basic contact information"
+          actions={<SaveIndicator status={saveStatus} error={error} />}
+        />
+      </PageHeaderBar>
 
-      <div className="space-y-6">
-        {/* Name */}
-        <div className="space-y-2">
-          <Label htmlFor="name">Full Name *</Label>
-          <Input
-            id="name"
-            value={profile.name || ''}
-            onChange={(e) => handleChange('name', e.target.value)}
-            placeholder="John Doe"
-          />
-        </div>
-
-        {/* Contact Row */}
-        <div className="grid grid-cols-2 gap-4">
+      <PageContent>
+        <div className="max-w-2xl space-y-6">
+          {/* Name */}
           <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="name">Full Name *</Label>
             <Input
-              id="email"
-              type="email"
-              value={profile.email || ''}
-              onChange={(e) => handleChange('email', e.target.value)}
-              placeholder="john@example.com"
+              id="name"
+              value={profile.name || ''}
+              onChange={(e) => handleChange('name', e.target.value)}
+              placeholder="John Doe"
             />
           </div>
+
+          {/* Contact Row */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                value={profile.email || ''}
+                onChange={(e) => handleChange('email', e.target.value)}
+                placeholder="john@example.com"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="phone">Phone</Label>
+              <Input
+                id="phone"
+                value={profile.phone || ''}
+                onChange={(e) => handleChange('phone', e.target.value)}
+                placeholder="+1 (555) 123-4567"
+              />
+            </div>
+          </div>
+
+          {/* Location */}
           <div className="space-y-2">
-            <Label htmlFor="phone">Phone</Label>
+            <Label htmlFor="location">Location</Label>
             <Input
-              id="phone"
-              value={profile.phone || ''}
-              onChange={(e) => handleChange('phone', e.target.value)}
-              placeholder="+1 (555) 123-4567"
+              id="location"
+              value={profile.location || ''}
+              onChange={(e) => handleChange('location', e.target.value)}
+              placeholder="San Francisco, CA"
             />
           </div>
-        </div>
 
-        {/* Location */}
-        <div className="space-y-2">
-          <Label htmlFor="location">Location</Label>
-          <Input
-            id="location"
-            value={profile.location || ''}
-            onChange={(e) => handleChange('location', e.target.value)}
-            placeholder="San Francisco, CA"
-          />
-        </div>
+          {/* Links */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="linkedin">LinkedIn</Label>
+              <Input
+                id="linkedin"
+                value={profile.linkedin || ''}
+                onChange={(e) => handleChange('linkedin', e.target.value)}
+                placeholder="https://linkedin.com/in/johndoe"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="github">GitHub</Label>
+              <Input
+                id="github"
+                value={profile.github || ''}
+                onChange={(e) => handleChange('github', e.target.value)}
+                placeholder="https://github.com/johndoe"
+              />
+            </div>
+          </div>
 
-        {/* Links */}
-        <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="linkedin">LinkedIn</Label>
+            <Label htmlFor="website">Website</Label>
             <Input
-              id="linkedin"
-              value={profile.linkedin || ''}
-              onChange={(e) => handleChange('linkedin', e.target.value)}
-              placeholder="https://linkedin.com/in/johndoe"
+              id="website"
+              value={profile.website || ''}
+              onChange={(e) => handleChange('website', e.target.value)}
+              placeholder="https://johndoe.com"
             />
           </div>
+
+          {/* Summary */}
           <div className="space-y-2">
-            <Label htmlFor="github">GitHub</Label>
-            <Input
-              id="github"
-              value={profile.github || ''}
-              onChange={(e) => handleChange('github', e.target.value)}
-              placeholder="https://github.com/johndoe"
+            <Label htmlFor="summary">Professional Summary</Label>
+            <Textarea
+              id="summary"
+              value={profile.summary || ''}
+              onChange={(e) => handleChange('summary', e.target.value)}
+              placeholder="A brief overview of your professional background and key strengths..."
+              className="min-h-[120px]"
             />
+            <p className="text-xs text-muted-foreground">
+              This will be used as context for AI-generated resumes and cover letters.
+            </p>
           </div>
         </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="website">Website</Label>
-          <Input
-            id="website"
-            value={profile.website || ''}
-            onChange={(e) => handleChange('website', e.target.value)}
-            placeholder="https://johndoe.com"
-          />
-        </div>
-
-        {/* Summary */}
-        <div className="space-y-2">
-          <Label htmlFor="summary">Professional Summary</Label>
-          <Textarea
-            id="summary"
-            value={profile.summary || ''}
-            onChange={(e) => handleChange('summary', e.target.value)}
-            placeholder="A brief overview of your professional background and key strengths..."
-            className="min-h-[120px]"
-          />
-          <p className="text-xs text-muted-foreground">
-            This will be used as context for AI-generated resumes and cover letters.
-          </p>
-        </div>
-      </div>
-    </div>
+      </PageContent>
+    </>
   );
 }

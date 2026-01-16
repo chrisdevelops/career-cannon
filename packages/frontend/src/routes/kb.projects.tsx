@@ -2,7 +2,8 @@ import { createFileRoute } from '@tanstack/react-router';
 import { useState, useEffect } from 'react';
 import { IconPlus, IconTrash, IconLoader2, IconPencil, IconExternalLink } from '@tabler/icons-react';
 import { projectsApi, type Project } from '@/lib/api';
-import { PageHeader } from '@/components/kb/page-header';
+import { PageContent, PageHeaderBar } from '@/components/layout/page-shell';
+import { PageTitleBar } from '@/components/layout/page-title-bar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -67,52 +68,56 @@ function ProjectsPage() {
   }
 
   return (
-    <div className="p-8">
-      <PageHeader
-        title="Projects"
-        description="Personal and side projects that showcase your skills"
-        actions={
-          <Button onClick={() => setShowForm(true)} className="gap-2">
-            <IconPlus className="w-4 h-4" />
-            Add Project
-          </Button>
-        }
-      />
-
-      {showForm && (
-        <ProjectForm
-          onSave={handleAdd}
-          onCancel={() => setShowForm(false)}
+    <>
+      <PageHeaderBar>
+        <PageTitleBar
+          title="Projects"
+          subtitle="Personal and side projects that showcase your skills"
+          actions={
+            <Button onClick={() => setShowForm(true)} className="gap-2">
+              <IconPlus className="w-4 h-4" />
+              Add Project
+            </Button>
+          }
         />
-      )}
+      </PageHeaderBar>
 
-      {projects.length === 0 && !showForm && (
-        <div className="text-center py-12 text-muted-foreground">
-          <p>No projects added yet.</p>
-          <p className="text-sm mt-1">Add projects to showcase in your resume.</p>
+      <PageContent>
+        {showForm && (
+          <ProjectForm
+            onSave={handleAdd}
+            onCancel={() => setShowForm(false)}
+          />
+        )}
+
+        {projects.length === 0 && !showForm && (
+          <div className="text-center py-12 text-muted-foreground">
+            <p>No projects added yet.</p>
+            <p className="text-sm mt-1">Add projects to showcase in your resume.</p>
+          </div>
+        )}
+
+        <div className="grid gap-4 md:grid-cols-2">
+          {projects.map((project) => (
+            editingId === project.id ? (
+              <ProjectForm
+                key={project.id}
+                project={project}
+                onSave={(data) => handleUpdate(project.id, data)}
+                onCancel={() => setEditingId(null)}
+              />
+            ) : (
+              <ProjectCard
+                key={project.id}
+                project={project}
+                onEdit={() => setEditingId(project.id)}
+                onDelete={() => handleDelete(project.id)}
+              />
+            )
+          ))}
         </div>
-      )}
-
-      <div className="grid gap-4 md:grid-cols-2">
-        {projects.map((project) => (
-          editingId === project.id ? (
-            <ProjectForm
-              key={project.id}
-              project={project}
-              onSave={(data) => handleUpdate(project.id, data)}
-              onCancel={() => setEditingId(null)}
-            />
-          ) : (
-            <ProjectCard
-              key={project.id}
-              project={project}
-              onEdit={() => setEditingId(project.id)}
-              onDelete={() => handleDelete(project.id)}
-            />
-          )
-        ))}
-      </div>
-    </div>
+      </PageContent>
+    </>
   );
 }
 

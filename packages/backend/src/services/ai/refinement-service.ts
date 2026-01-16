@@ -6,6 +6,7 @@
  */
 
 import { getOpenAIProvider } from './openai-provider.js';
+import { getPromptText } from './prompts.js';
 import type { RefinementRequest, RefinementResult, ChatMessage, KBContext } from './types.js';
 
 /**
@@ -37,10 +38,8 @@ function formatKBReference(kb: KBContext): string {
 /**
  * Build the system prompt for refinement.
  */
-function buildRefinementSystemPrompt(type: 'resume' | 'cover_letter', kbReference: string): string {
-  const docType = type === 'resume' ? 'resume' : 'cover letter';
-
-  return `You are helping refine a ${docType}. You have been collaborating with the user to improve it.
+function buildRefinementSystemPromptTemplate(): string {
+  return `You are helping refine a [resume/cover letter]. You have been collaborating with the user to improve it.
 
 YOUR ROLE:
 - Make specific edits based on user requests
@@ -49,7 +48,7 @@ YOUR ROLE:
 - Explain what you changed and why (briefly)
 
 CANDIDATE'S BACKGROUND (use ONLY this information):
-${kbReference}
+[Knowledge Base Reference]
 
 GUIDELINES:
 1. When the user asks to add something, integrate it naturally
@@ -61,14 +60,20 @@ GUIDELINES:
 
 OUTPUT FORMAT:
 First, briefly explain what you changed (1-2 sentences).
-Then output the complete updated ${docType} in Markdown format.
+Then output the complete updated document in Markdown format.
 
 Format your response as:
 **Changes:** [Brief explanation]
 
 ---
 
-[Complete updated ${docType}]`;
+[Complete updated document]`;
+}
+
+function applyRefinementTemplate(template: string, docType: string, kbReference: string): string {
+  return template
+    .replace('[resume/cover letter]', docType)
+    .replace('[Knowledge Base Reference]', kbReference);
 }
 
 /**
@@ -77,12 +82,18 @@ Format your response as:
 export async function refineGeneration(request: RefinementRequest): Promise<RefinementResult> {
   const provider = getOpenAIProvider();
 
-  if (!provider.isConfigured()) {
+  if (!(await provider.isConfiguredAsync())) {
     throw new Error('AI provider is not configured');
   }
 
   const kbReference = formatKBReference(request.kbContext);
-  const systemPrompt = buildRefinementSystemPrompt(request.type, kbReference);
+  const defaultTemplate = buildRefinementSystemPromptTemplate();
+  const overrideTemplate = await getPromptText('refinement');
+  const systemPrompt = applyRefinementTemplate(
+    overrideTemplate || defaultTemplate,
+    request.type === 'resume' ? 'resume' : 'cover letter',
+    kbReference
+  );
 
   // Build message history
   const messages: ChatMessage[] = [
@@ -167,7 +178,7 @@ export async function refineGenerationStream(
 ): Promise<RefinementResult> {
   const provider = getOpenAIProvider();
 
-  if (!provider.isConfigured()) {
+  if (!(await provider.isConfiguredAsync())) {
     throw new Error('AI provider is not configured');
   }
 
@@ -176,7 +187,13 @@ export async function refineGenerationStream(
   }
 
   const kbReference = formatKBReference(request.kbContext);
-  const systemPrompt = buildRefinementSystemPrompt(request.type, kbReference);
+  const defaultTemplate = buildRefinementSystemPromptTemplate();
+  const overrideTemplate = await getPromptText('refinement');
+  const systemPrompt = applyRefinementTemplate(
+    overrideTemplate || defaultTemplate,
+    request.type === 'resume' ? 'resume' : 'cover letter',
+    kbReference
+  );
 
   const messages: ChatMessage[] = [
     { role: 'system', content: systemPrompt },
@@ -212,17 +229,16 @@ export async function generateSuggestions(
 ): Promise<string[]> {
   const provider = getOpenAIProvider();
 
-  if (!provider.isConfigured()) {
+  if (!(await provider.isConfiguredAsync())) {
     throw new Error('AI provider is not configured');
   }
 
   const docType = type === 'resume' ? 'resume' : 'cover letter';
   const kbReference = formatKBReference(kb);
-
-  const systemPrompt = `You are a career coach reviewing a ${docType}. Provide 3-5 specific, actionable suggestions for improvement.
+  const defaultTemplate = `You are a career coach reviewing a [resume/cover letter]. Provide 3-5 specific, actionable suggestions for improvement.
 
 CANDIDATE'S BACKGROUND:
-${kbReference}
+[Knowledge Base Reference]
 
 FORMAT YOUR RESPONSE AS A JSON ARRAY OF STRINGS:
 ["suggestion 1", "suggestion 2", "suggestion 3"]
@@ -239,11 +255,20 @@ DO NOT suggest:
 - Generic advice that could apply to anyone
 - Major structural overhauls`;
 
+  const overrideTemplate = await getPromptText('suggestions');
+  const systemPrompt = applyRefinementTemplate(
+    overrideTemplate || defaultTemplate,
+    docType,
+    kbReference
+  );
+
   const messages: ChatMessage[] = [
     { role: 'system', content: systemPrompt },
     {
       role: 'user',
-      content: `Review this ${docType} and suggest improvements:\n\n${content}`,
+      content: `Review this ${docType} and suggest improvements:
+
+${content}`,
     },
   ];
 

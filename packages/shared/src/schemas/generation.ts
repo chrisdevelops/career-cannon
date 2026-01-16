@@ -31,7 +31,12 @@ export const generationVersionSchema = z.object({
     content: z.string(),
   })).nullable().optional(),
   version: z.number().int().positive(),
+  name: z.string().nullable().optional(),
+  favorite: z.boolean().optional(),
+  isDraft: z.boolean().optional(),
+  baseVersionId: z.string().cuid().nullable().optional(),
   createdAt: z.date().optional(),
+  updatedAt: z.date().optional(),
 });
 
 export const createGenerationVersionSchema = generationVersionSchema.omit({ 

@@ -1,4 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router';
+import { AppLayout } from '@/components/app-layout';
 import { useEffect, useState } from 'react';
 import {
   changeLogApi,
@@ -21,7 +22,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { PageHeader } from '@/components/kb/page-header';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { PageContent, PageHeaderBar, PageShell } from '@/components/layout/page-shell';
+import { PageTitleBar } from '@/components/layout/page-title-bar';
 import { 
   IconHistory,
   IconRefresh,
@@ -58,10 +70,13 @@ function HistoryPage() {
   const [history, setHistory] = useState<ChangeLogEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterType, setFilterType] = useState<EntityType | 'all'>('all');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'undone'>('all');
   const [entityIdFilter, setEntityIdFilter] = useState('');
   const [debouncedEntityId, setDebouncedEntityId] = useState('');
   const [undoingId, setUndoingId] = useState<string | null>(null);
+  const [redoingId, setRedoingId] = useState<string | null>(null);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+  const [entryToUndo, setEntryToUndo] = useState<ChangeLogEntry | null>(null);
 
   const debouncedSetEntityId = useDebouncedCallback((value: string) => {
     setDebouncedEntityId(value);
@@ -75,9 +90,20 @@ function HistoryPage() {
   const fetchHistory = async () => {
     setLoading(true);
     try {
-      const params: { limit: number; entityType?: EntityType; entityId?: string } = { limit: 50 };
+      const params: {
+        limit: number;
+        entityType?: EntityType;
+        entityId?: string;
+        undone?: boolean;
+      } = { limit: 50 };
       if (filterType !== 'all') {
         params.entityType = filterType;
+      }
+      if (filterStatus === 'active') {
+        params.undone = false;
+      }
+      if (filterStatus === 'undone') {
+        params.undone = true;
       }
       if (debouncedEntityId.trim()) {
         params.entityId = debouncedEntityId.trim();
@@ -93,12 +119,16 @@ function HistoryPage() {
 
   useEffect(() => {
     fetchHistory();
-  }, [filterType, debouncedEntityId]);
+  }, [filterType, filterStatus, debouncedEntityId]);
 
-  const handleUndo = async (entry: ChangeLogEntry) => {
-    if (!confirm('Are you sure you want to undo this change? This action might have side effects.')) {
-      return;
-    }
+  const handleUndoClick = (entry: ChangeLogEntry) => {
+    setEntryToUndo(entry);
+  };
+
+  const confirmUndo = async () => {
+    if (!entryToUndo) return;
+    const entry = entryToUndo;
+    setEntryToUndo(null);
 
     setUndoingId(entry.id);
     setMessage(null);
@@ -115,6 +145,25 @@ function HistoryPage() {
     } finally {
       setUndoingId(null);
       // Clear message after 3 seconds
+      setTimeout(() => setMessage(null), 3000);
+    }
+  };
+
+  const handleRedo = async (entry: ChangeLogEntry) => {
+    setRedoingId(entry.id);
+    setMessage(null);
+    try {
+      const result = await changeLogApi.redo(entry.id);
+      if (result.success) {
+        setMessage({ type: 'success', text: result.message });
+        await fetchHistory();
+      } else {
+        setMessage({ type: 'error', text: result.message });
+      }
+    } catch (err) {
+      setMessage({ type: 'error', text: 'Failed to redo change' });
+    } finally {
+      setRedoingId(null);
       setTimeout(() => setMessage(null), 3000);
     }
   };
@@ -142,91 +191,132 @@ function HistoryPage() {
   };
 
   return (
-    <div className="container max-w-5xl mx-auto py-8 px-4">
-      <PageHeader 
-        title="Change History" 
-        description="View and undo recent changes to your data."
-        actions={
-          <div className="flex items-center gap-2">
-            <Input
-              placeholder="Filter by Entity ID..."
-              value={entityIdFilter}
-              onChange={handleEntityIdChange}
-              className="w-[200px] h-9"
-            />
-            <Select 
-              value={filterType} 
-              onValueChange={(val) => setFilterType(val as EntityType | 'all')}
-            >
-              <SelectTrigger className="w-[180px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {ENTITY_TYPES.map((type) => (
-                  <SelectItem key={type.value} value={type.value}>
-                    {type.label}
-                  </SelectItem>
+    <AppLayout>
+      <PageShell>
+      <PageHeaderBar>
+        <PageTitleBar
+          title="Change History"
+          subtitle="View and undo recent changes to your data."
+          actions={
+            <div className="flex items-center gap-2">
+              <Input
+                placeholder="Filter by Entity ID..."
+                value={entityIdFilter}
+                onChange={handleEntityIdChange}
+                className="w-[200px] h-9"
+              />
+              <Select 
+                value={filterType} 
+                onValueChange={(val) => setFilterType(val as EntityType | 'all')}
+              >
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {ENTITY_TYPES.map((type) => (
+                    <SelectItem key={type.value} value={type.value}>
+                      {type.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={filterStatus} onValueChange={(val) => setFilterStatus(val as 'all' | 'active' | 'undone')}>
+                <SelectTrigger className="w-[140px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Changes</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="undone">Undone</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button variant="outline" size="sm" onClick={() => fetchHistory()} disabled={loading}>
+                <IconHistory className="size-4 mr-2" />
+                Refresh
+              </Button>
+            </div>
+          }
+        />
+      </PageHeaderBar>
+
+        <PageContent>
+          <div className="max-w-5xl mx-auto">
+            {message && (
+              <div className={cn(
+                "mb-6 p-4 rounded-lg text-sm font-medium animate-in fade-in slide-in-from-top-2",
+                message.type === 'success' 
+                  ? "bg-green-50 text-green-700 border border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800" 
+                  : "bg-red-50 text-red-700 border border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800"
+              )}>
+                {message.text}
+              </div>
+            )}
+
+            {loading && history.length === 0 ? (
+              <div className="space-y-4">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="h-32 bg-muted/20 animate-pulse rounded-lg border" />
                 ))}
-              </SelectContent>
-            </Select>
-            <Button variant="outline" size="sm" onClick={() => fetchHistory()} disabled={loading}>
-              <IconHistory className="size-4 mr-2" />
-              Refresh
-            </Button>
+              </div>
+            ) : history.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground border rounded-lg bg-muted/5">
+                <IconHistory className="size-12 mx-auto mb-4 opacity-20" />
+                <p>No changes found.</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {history.map((entry) => (
+                  <ChangeCard 
+                    key={entry.id} 
+                    entry={entry} 
+                    onUndo={handleUndoClick} 
+                    onRedo={handleRedo}
+                    isUndoing={undoingId === entry.id}
+                    isRedoing={redoingId === entry.id}
+                    getActionBadge={getActionBadge}
+                    formatDate={formatDate}
+                  />
+                ))}
+              </div>
+            )}
           </div>
-        }
-      />
-
-      {message && (
-        <div className={cn(
-          "mb-6 p-4 rounded-lg text-sm font-medium animate-in fade-in slide-in-from-top-2",
-          message.type === 'success' 
-            ? "bg-green-50 text-green-700 border border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800" 
-            : "bg-red-50 text-red-700 border border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800"
-        )}>
-          {message.text}
-        </div>
-      )}
-
-      {loading && history.length === 0 ? (
-        <div className="space-y-4">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="h-32 bg-muted/20 animate-pulse rounded-lg border" />
-          ))}
-        </div>
-      ) : history.length === 0 ? (
-        <div className="text-center py-12 text-muted-foreground border rounded-lg bg-muted/5">
-          <IconHistory className="size-12 mx-auto mb-4 opacity-20" />
-          <p>No changes found.</p>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {history.map((entry) => (
-            <ChangeCard 
-              key={entry.id} 
-              entry={entry} 
-              onUndo={handleUndo} 
-              isUndoing={undoingId === entry.id}
-              getActionBadge={getActionBadge}
-              formatDate={formatDate}
-            />
-          ))}
-        </div>
-      )}
-    </div>
+        </PageContent>
+      </PageShell>
+      
+      <AlertDialog open={!!entryToUndo} onOpenChange={(open) => !open && setEntryToUndo(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Undo Change</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to undo this change? This action might have side effects.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmUndo}>
+              Confirm Undo
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </AppLayout>
   );
 }
 
 function ChangeCard({
   entry,
   onUndo,
+  onRedo,
   isUndoing,
+  isRedoing,
   getActionBadge,
   formatDate,
 }: {
   entry: ChangeLogEntry;
   onUndo: (entry: ChangeLogEntry) => void;
+  onRedo: (entry: ChangeLogEntry) => void;
   isUndoing: boolean;
+  isRedoing: boolean;
   getActionBadge: (action: string) => React.ReactNode;
   formatDate: (date: string) => string;
 }) {
@@ -300,6 +390,11 @@ function ChangeCard({
             <Badge variant="outline" className="font-normal text-muted-foreground">
               {getEntityTypeName(entry.entityType)}
             </Badge>
+            {entry.undone && (
+              <Badge variant="outline" className="text-muted-foreground">
+                Undone
+              </Badge>
+            )}
             <span className="text-muted-foreground text-sm">•</span>
             <span className="text-sm font-medium">{name}</span>
             <span className="text-xs text-muted-foreground font-mono ml-2 opacity-50">
@@ -317,22 +412,41 @@ function ChangeCard({
       </CardContent>
       
       <CardFooter className="bg-muted/5 py-2 flex justify-end border-t">
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          onClick={() => onUndo(entry)} 
-          disabled={isUndoing}
-          className="text-muted-foreground hover:text-foreground h-8"
-        >
-          {isUndoing ? (
-            <>Undoing...</>
-          ) : (
-            <>
-               <IconRefresh className="size-3.5 mr-2" />
-              Undo Change
-            </>
-          )}
-        </Button>
+        {entry.undone ? (
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => onRedo(entry)} 
+            disabled={isRedoing}
+            className="text-muted-foreground hover:text-foreground h-8"
+          >
+            {isRedoing ? (
+              <>Redoing...</>
+            ) : (
+              <>
+                 <IconRefresh className="size-3.5 mr-2" />
+                Redo Change
+              </>
+            )}
+          </Button>
+        ) : (
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => onUndo(entry)} 
+            disabled={isUndoing}
+            className="text-muted-foreground hover:text-foreground h-8"
+          >
+            {isUndoing ? (
+              <>Undoing...</>
+            ) : (
+              <>
+                 <IconRefresh className="size-3.5 mr-2" />
+                Undo Change
+              </>
+            )}
+          </Button>
+        )}
       </CardFooter>
     </Card>
   );

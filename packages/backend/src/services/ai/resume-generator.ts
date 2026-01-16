@@ -12,6 +12,7 @@
  */
 
 import { getOpenAIProvider } from './openai-provider.js';
+import { getPromptText } from './prompts.js';
 import type { KBContext, GenerationRequest, GeneratedResume, ChatMessage } from './types.js';
 
 /**
@@ -28,11 +29,47 @@ function buildVoiceInstructions(voice: KBContext['voiceBlueprint']): string {
   if (voice.formality) {
     parts.push(`Formality: ${voice.formality}`);
   }
+  if (voice.audience) {
+    parts.push(`Target audience: ${voice.audience}`);
+  }
+  if (voice.pointOfView) {
+    parts.push(`Point of view: ${voice.pointOfView}`);
+  }
+  if (voice.energy) {
+    parts.push(`Energy level: ${voice.energy}`);
+  }
+  if (voice.confidence) {
+    parts.push(`Confidence level: ${voice.confidence}`);
+  }
+  if (voice.pacing) {
+    parts.push(`Pacing: ${voice.pacing}`);
+  }
+  if (voice.structureStyle) {
+    parts.push(`Structure style: ${voice.structureStyle}`);
+  }
+  if (voice.emphasis) {
+    parts.push(`Emphasis: ${voice.emphasis}`);
+  }
   if (voice.sentenceLength) {
     parts.push(`Sentence length preference: ${voice.sentenceLength}`);
   }
   if (voice.vocabularyNotes) {
     parts.push(`Vocabulary notes: ${voice.vocabularyNotes}`);
+  }
+  if (voice.grammarNotes) {
+    parts.push(`Grammar notes: ${voice.grammarNotes}`);
+  }
+  if (voice.punctuationStyle) {
+    parts.push(`Punctuation style: ${voice.punctuationStyle}`);
+  }
+  if (voice.preferredVerbs && voice.preferredVerbs.length > 0) {
+    parts.push(`Preferred verbs: ${voice.preferredVerbs.join(', ')}`);
+  }
+  if (voice.preferredPhrases && voice.preferredPhrases.length > 0) {
+    parts.push(`Preferred phrases: ${voice.preferredPhrases.join(', ')}`);
+  }
+  if (voice.bannedPhrases && voice.bannedPhrases.length > 0) {
+    parts.push(`Banned phrases: ${voice.bannedPhrases.join(', ')}`);
   }
   if (voice.avoid && voice.avoid.length > 0) {
     parts.push(`Avoid: ${voice.avoid.join(', ')}`);
@@ -42,6 +79,9 @@ function buildVoiceInstructions(voice: KBContext['voiceBlueprint']): string {
   }
   if (voice.samples && voice.samples.length > 0) {
     parts.push(`Writing samples to emulate:\n${voice.samples.map((s) => `- "${s}"`).join('\n')}`);
+  }
+  if (voice.samplePairs && voice.samplePairs.length > 0) {
+    parts.push(`Prompted samples:\n${voice.samplePairs.map((p) => `- Prompt: "${p.prompt}"\n  Response: "${p.response}"`).join('\n')}`);
   }
 
   if (parts.length === 0) return '';
@@ -143,7 +183,7 @@ function formatDate(date: Date): string {
 /**
  * Build the system prompt for resume generation.
  */
-function buildSystemPrompt(temperature: number, voiceInstructions: string): string {
+function buildSystemPromptTemplate(temperature: number): string {
   const targetingLevel = temperature < 0.3
     ? 'Create a general-purpose resume that showcases breadth of experience. Focus on transferable skills and overall career narrative.'
     : temperature < 0.7
@@ -189,7 +229,24 @@ STRUCTURE:
 [Degree, Institution, Date]
 
 ## Projects (optional - include if relevant)
-${voiceInstructions}`;
+
+[Voice Instructions Injected Here]`;
+}
+
+function applyResumePromptTemplate(
+  template: string,
+  temperature: number,
+  voiceInstructions: string
+): string {
+  const targetingLevel = temperature < 0.3
+    ? 'Create a general-purpose resume that showcases breadth of experience. Focus on transferable skills and overall career narrative.'
+    : temperature < 0.7
+    ? 'Create a balanced resume that highlights relevant experience while maintaining authenticity. Map key skills to job requirements where genuine matches exist.'
+    : 'Create a highly targeted resume that closely maps to the job description. Prioritize experiences and skills that directly address stated requirements. Use terminology from the JD where it authentically represents the candidate.';
+
+  return template
+    .replace('[Dynamic based on temperature setting]', targetingLevel)
+    .replace('[Voice Instructions Injected Here]', voiceInstructions || '');
 }
 
 /**
@@ -198,12 +255,18 @@ ${voiceInstructions}`;
 export async function generateResume(request: GenerationRequest): Promise<GeneratedResume> {
   const provider = getOpenAIProvider();
 
-  if (!provider.isConfigured()) {
+  if (!(await provider.isConfiguredAsync())) {
     throw new Error('AI provider is not configured');
   }
 
   const voiceInstructions = buildVoiceInstructions(request.kbContext.voiceBlueprint);
-  const systemPrompt = buildSystemPrompt(request.temperature, voiceInstructions);
+  const defaultTemplate = buildSystemPromptTemplate(request.temperature);
+  const overrideTemplate = await getPromptText('resume-generator');
+  const systemPrompt = applyResumePromptTemplate(
+    overrideTemplate || defaultTemplate,
+    request.temperature,
+    voiceInstructions
+  );
   const kbContext = formatKBContext(request.kbContext);
 
   const userPrompt = `Generate a resume for the following position:
@@ -280,7 +343,7 @@ export async function generateResumeStream(
 ): Promise<GeneratedResume> {
   const provider = getOpenAIProvider();
 
-  if (!provider.isConfigured()) {
+  if (!(await provider.isConfiguredAsync())) {
     throw new Error('AI provider is not configured');
   }
 
@@ -290,7 +353,13 @@ export async function generateResumeStream(
   }
 
   const voiceInstructions = buildVoiceInstructions(request.kbContext.voiceBlueprint);
-  const systemPrompt = buildSystemPrompt(request.temperature, voiceInstructions);
+  const defaultTemplate = buildSystemPromptTemplate(request.temperature);
+  const overrideTemplate = await getPromptText('resume-generator');
+  const systemPrompt = applyResumePromptTemplate(
+    overrideTemplate || defaultTemplate,
+    request.temperature,
+    voiceInstructions
+  );
   const kbContext = formatKBContext(request.kbContext);
 
   const userPrompt = `Generate a resume for the following position:

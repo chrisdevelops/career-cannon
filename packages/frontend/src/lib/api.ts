@@ -68,8 +68,33 @@ class ApiClient {
     });
   }
 
+  async patch<T>(endpoint: string, body?: unknown): Promise<T> {
+    return this.request<T>(endpoint, {
+      method: 'PATCH',
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  }
+
   async delete<T>(endpoint: string): Promise<T> {
     return this.request<T>(endpoint, { method: 'DELETE' });
+  }
+
+  async postFormData<T>(endpoint: string, formData: FormData): Promise<T> {
+    const url = `${this.baseUrl}${endpoint}`;
+    
+    const response = await fetch(url, {
+      method: 'POST',
+      body: formData,
+      // Don't set Content-Type header - let browser set it with boundary
+    });
+
+    const data: ApiResponse<T> = await response.json();
+
+    if (!data.success) {
+      throw new ApiRequestError(data.error.code, data.error.message, data.error.details);
+    }
+
+    return data.data;
   }
 }
 
@@ -180,74 +205,35 @@ export interface Education {
   updatedAt: string;
 }
 
-// Voice Blueprint
+export interface VoiceSamplePair {
+  prompt: string;
+  response: string;
+}
+
 export interface VoiceBlueprint {
   id: string;
   tone?: string | null;
   formality?: string | null;
-  vocabularyNotes?: string | null;
   sentenceLength?: string | null;
+  audience?: string | null;
+  pointOfView?: string | null;
+  energy?: string | null;
+  confidence?: string | null;
+  pacing?: string | null;
+  structureStyle?: string | null;
+  emphasis?: string | null;
+  vocabularyNotes?: string | null;
+  grammarNotes?: string | null;
+  punctuationStyle?: string | null;
+  preferredVerbs?: string[] | null;
+  preferredPhrases?: string[] | null;
+  bannedPhrases?: string[] | null;
   avoid?: string[] | null;
   samples?: string[] | null;
+  samplePairs?: VoiceSamplePair[] | null;
   customPrompt?: string | null;
   createdAt: string;
   updatedAt: string;
-}
-
-// Generation
-export interface Generation {
-  id: string;
-  company: string;
-  position: string;
-  jobDescription: string;
-  temperature: number;
-  createdAt: string;
-  updatedAt: string;
-  versions?: GenerationVersion[];
-}
-
-export interface GenerationVersion {
-  id: string;
-  generationId: string;
-  type: 'resume' | 'cover_letter';
-  content: string;
-  chatContext?: ChatMessage[] | null;
-  version: number;
-  createdAt: string;
-}
-
-export interface ChatMessage {
-  role: 'user' | 'assistant';
-  content: string;
-}
-
-// AI Responses
-export interface AiStatus {
-  provider: string;
-  configured: boolean;
-}
-
-export interface GeneratedResume {
-  content: string;
-  selectedItems: {
-    roleIds: string[];
-    skillIds: string[];
-    projectIds: string[];
-    educationIds: string[];
-  };
-}
-
-export interface GeneratedCoverLetter {
-  content: string;
-}
-
-export interface RefinementResult {
-  content: string;
-  explanation?: string;
-}
-
-export interface SuggestionsResult {
-  suggestions: string[];
 }
 
 // Change Log
@@ -271,6 +257,8 @@ export interface ChangeLogEntry {
   beforeSnapshot: unknown | null;
   afterSnapshot: unknown | null;
   timestamp: string;
+  undone: boolean;
+  undoneAt: string | null;
 }
 
 export interface UndoChangeResult {
@@ -452,23 +440,20 @@ export const educationApi = {
   delete: (id: string) => api.delete<{ deleted: boolean }>(`/education/${id}`),
 };
 
-export const voiceBlueprintApi = {
-  get: () => api.get<VoiceBlueprint | null>('/voice-blueprint'),
-  update: (data: Partial<Omit<VoiceBlueprint, 'id' | 'createdAt' | 'updatedAt'>>) =>
-    api.put<VoiceBlueprint>('/voice-blueprint', data),
-  delete: () => api.delete<{ deleted: boolean }>('/voice-blueprint'),
-};
+
 
 export const changeLogApi = {
-  list: (params?: { entityType?: EntityType; entityId?: string; limit?: number }) => {
+  list: (params?: { entityType?: EntityType; entityId?: string; limit?: number; undone?: boolean }) => {
     const search = new URLSearchParams();
     if (params?.entityType) search.set('entityType', params.entityType);
     if (params?.entityId) search.set('entityId', params.entityId);
     if (params?.limit) search.set('limit', String(params.limit));
+    if (params?.undone !== undefined) search.set('undone', String(params.undone));
     const qs = search.toString();
     return api.get<ChangeLogEntry[]>(`/change-log${qs ? `?${qs}` : ''}`);
   },
   undo: (changeLogId: string) => api.post<UndoChangeResult>('/change-log/undo', { changeLogId }),
+  redo: (changeLogId: string) => api.post<UndoChangeResult>('/change-log/redo', { changeLogId }),
 };
 
 export const aiApi = {
@@ -476,6 +461,12 @@ export const aiApi = {
 
   parseResume: (data: { content: string; format?: 'text' | 'markdown' }) =>
     api.post<ParseResumeResult>('/ai/parse-resume', data),
+
+  parseResumeFile: async (file: File): Promise<ParseResumeResult> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.postFormData<ParseResumeResult>('/ai/parse-resume-file', formData);
+  },
 
   generateResume: (data: {
     jobDescription: string;
@@ -521,7 +512,48 @@ export const generationsApi = {
     content: string;
     chatContext?: ChatMessage[];
   }) => api.post<GenerationVersion>(`/generations/${generationId}/versions`, data),
+
+  updateVersion: (generationId: string, versionId: string, data: {
+    name?: string | null;
+    favorite?: boolean;
+  }) => api.patch<GenerationVersion>(`/generations/${generationId}/versions/${versionId}`, data),
+
+  saveDraft: (generationId: string, data: {
+    baseVersionId: string;
+    content: string;
+    chatContext?: ChatMessage[];
+  }) => api.post<GenerationVersion>(`/generations/${generationId}/drafts`, data),
+
+  discardDraft: (generationId: string, draftId: string) =>
+    api.delete<{ deleted: boolean }>(`/generations/${generationId}/drafts/${draftId}`),
+
+  commitDraft: (generationId: string, draftId: string) =>
+    api.post<GenerationVersion>(`/generations/${generationId}/versions/commit`, { draftId }),
   
   getVersions: (generationId: string) => 
     api.get<GenerationVersion[]>(`/generations/${generationId}/versions`),
+};
+
+export const promptsApi = {
+  list: () => api.get<PromptRecord[]>('/prompts'),
+  update: (key: string, content: string) =>
+    api.patch<PromptRecord>(`/prompts/${key}`, { content }),
+  reset: (key: string) => api.post<PromptRecord>(`/prompts/${key}/reset`, {}),
+};
+
+export const settingsApi = {
+  getApiKey: () => api.get<ApiKeyStatus>('/settings/api-keys'),
+  setApiKey: (provider: 'openai', value: string) =>
+    api.put<ApiKeyStatus>('/settings/api-keys', { provider, value }),
+  clearApiKey: (provider: 'openai') =>
+    api.delete<{ deleted: boolean }>(`/settings/api-keys/${provider}`),
+};
+
+export const voiceBlueprintApi = {
+  get: () => api.get<VoiceBlueprint | null>('/voice-blueprint'),
+  create: (data: Omit<VoiceBlueprint, 'id' | 'createdAt' | 'updatedAt'>) =>
+    api.post<VoiceBlueprint>('/voice-blueprint', data),
+  update: (data: Partial<Omit<VoiceBlueprint, 'id' | 'createdAt' | 'updatedAt'>>) =>
+    api.put<VoiceBlueprint>('/voice-blueprint', data),
+  delete: () => api.delete<{ deleted: boolean }>('/voice-blueprint'),
 };

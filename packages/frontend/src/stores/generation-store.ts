@@ -39,6 +39,20 @@ interface GenerationState {
   
   // Actions
   startNewSession: (type: GenerationType) => void;
+  loadSession: (payload: {
+    id: string;
+    type: GenerationType;
+    input: GenerationInput;
+    versions: GenerationVersion[];
+    currentVersionIndex: number;
+    currentContent: string;
+    chatHistory: ChatMessage[];
+  }) => void;
+  setVersions: (versions: GenerationVersion[], currentIndex?: number) => void;
+  upsertDraft: (draft: GenerationVersion) => void;
+  replaceDraftWithVersion: (draftId: string, version: GenerationVersion) => void;
+  removeDraft: (draftId: string, baseVersionId?: string | null) => void;
+  updateVersionMeta: (versionId: string, data: Partial<GenerationVersion>) => void;
   updateInput: (input: Partial<GenerationInput>) => void;
   setContent: (content: string) => void;
   addVersion: (version: GenerationVersion) => void;
@@ -58,6 +72,17 @@ const defaultInput: GenerationInput = {
   userPrompt: '',
 };
 
+const sortVersions = (versions: GenerationVersion[]) => {
+  return [...versions].sort((a, b) => {
+    if (a.version !== b.version) return a.version - b.version;
+    if (a.isDraft && !b.isDraft) return 1;
+    if (!a.isDraft && b.isDraft) return -1;
+    const aTime = a.updatedAt || a.createdAt;
+    const bTime = b.updatedAt || b.createdAt;
+    return new Date(aTime).getTime() - new Date(bTime).getTime();
+  });
+};
+
 export const useGenerationStore = create<GenerationState>((set, get) => ({
   session: null,
 
@@ -73,6 +98,120 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
         chatHistory: [],
         status: 'idle',
         error: null,
+      },
+    });
+  },
+
+  loadSession: (payload) => {
+    const sorted = sortVersions(payload.versions);
+    const currentIndex = payload.currentVersionIndex >= 0
+      ? payload.currentVersionIndex
+      : sorted.length - 1;
+
+    set({
+      session: {
+        id: payload.id,
+        type: payload.type,
+        input: payload.input,
+        currentContent: payload.currentContent,
+        versions: sorted,
+        currentVersionIndex: currentIndex,
+        chatHistory: payload.chatHistory,
+        status: 'idle',
+        error: null,
+      },
+    });
+  },
+
+  setVersions: (versions, currentIndex) => {
+    const { session } = get();
+    if (!session) return;
+    const sorted = sortVersions(versions);
+    const nextIndex = currentIndex !== undefined
+      ? currentIndex
+      : Math.min(session.currentVersionIndex, sorted.length - 1);
+    set({
+      session: {
+        ...session,
+        versions: sorted,
+        currentVersionIndex: nextIndex,
+      },
+    });
+  },
+
+  upsertDraft: (draft) => {
+    const { session } = get();
+    if (!session) return;
+    const withoutDraft = session.versions.filter((v) => v.id !== draft.id);
+    const sorted = sortVersions([...withoutDraft, draft]);
+    const draftIndex = sorted.findIndex((v) => v.id === draft.id);
+    set({
+      session: {
+        ...session,
+        versions: sorted,
+        currentVersionIndex: draftIndex,
+        currentContent: draft.content,
+        chatHistory: draft.chatContext || [],
+      },
+    });
+  },
+
+  replaceDraftWithVersion: (draftId, version) => {
+    const { session } = get();
+    if (!session) return;
+    const filtered = session.versions.filter((v) => v.id !== draftId);
+    const sorted = sortVersions([...filtered, version]);
+    const versionIndex = sorted.findIndex((v) => v.id === version.id);
+    set({
+      session: {
+        ...session,
+        versions: sorted,
+        currentVersionIndex: versionIndex,
+        currentContent: version.content,
+        chatHistory: version.chatContext || [],
+      },
+    });
+  },
+
+  removeDraft: (draftId, baseVersionId) => {
+    const { session } = get();
+    if (!session) return;
+    const filtered = session.versions.filter((v) => v.id !== draftId);
+    const baseIndex = baseVersionId
+      ? filtered.findIndex((v) => v.id === baseVersionId)
+      : -1;
+    const nextIndex = baseIndex >= 0
+      ? baseIndex
+      : Math.min(session.currentVersionIndex, filtered.length - 1);
+    const nextVersion = filtered[nextIndex];
+    set({
+      session: {
+        ...session,
+        versions: filtered,
+        currentVersionIndex: nextIndex,
+        currentContent: nextVersion?.content || '',
+        chatHistory: nextVersion?.chatContext || [],
+      },
+    });
+  },
+
+  updateVersionMeta: (versionId, data) => {
+    const { session } = get();
+    if (!session) return;
+    const updated = session.versions.map((version) => {
+      if (version.id === versionId || version.baseVersionId === versionId) {
+        return { ...version, ...data };
+      }
+      return version;
+    });
+    const sorted = sortVersions(updated);
+    const current = sorted[session.currentVersionIndex];
+    set({
+      session: {
+        ...session,
+        versions: sorted,
+        currentContent: current?.content || session.currentContent,
+        chatHistory: current?.chatContext || session.chatHistory,
       },
     });
   },
@@ -104,14 +243,16 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
   addVersion: (version) => {
     const { session } = get();
     if (!session) return;
-    
-    const versions = [...session.versions, version];
+
+    const sorted = sortVersions([...session.versions, version]);
+    const nextIndex = sorted.findIndex((v) => v.id === version.id);
     set({
       session: {
         ...session,
-        versions,
-        currentVersionIndex: versions.length - 1,
+        versions: sorted,
+        currentVersionIndex: nextIndex,
         currentContent: version.content,
+        chatHistory: version.chatContext || [],
       },
     });
   },
@@ -119,7 +260,8 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
   selectVersion: (index) => {
     const { session } = get();
     if (!session || index < 0 || index >= session.versions.length) return;
-    
+    if (session.currentVersionIndex === index) return;
+
     const version = session.versions[index];
     set({
       session: {

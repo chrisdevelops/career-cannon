@@ -13,6 +13,8 @@ import voiceBlueprintRoutes from './routes/voice-blueprint.js';
 import changeLogRoutes from './routes/change-log.js';
 import aiRoutes from './routes/ai.js';
 import generationsRoutes from './routes/generations.js';
+import promptsRoutes from './routes/prompts.js';
+import settingsRoutes from './routes/settings.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -38,6 +40,8 @@ app.use('/api/voice-blueprint', voiceBlueprintRoutes);
 app.use('/api/change-log', changeLogRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/generations', generationsRoutes);
+app.use('/api/prompts', promptsRoutes);
+app.use('/api/settings', settingsRoutes);
 
 // Error handler (must be last)
 app.use(errorHandler);

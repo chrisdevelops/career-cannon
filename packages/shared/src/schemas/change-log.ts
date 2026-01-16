@@ -25,6 +25,8 @@ export const changeLogSchema = z.object({
   beforeSnapshot: z.unknown().nullable().optional(),
   afterSnapshot: z.unknown().nullable().optional(),
   timestamp: z.date().optional(),
+  undone: z.boolean().optional(),
+  undoneAt: z.date().nullable().optional(),
 });
 
 export type EntityType = z.infer<typeof entityTypeSchema>;
